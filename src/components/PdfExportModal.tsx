@@ -428,8 +428,13 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                   <span className="font-semibold">Kode Aset</span> (Format Monospace Tebal)
                 </div>
                 <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span className="font-semibold">Nama Aset</span> (Teks Tegas)
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    <strong className="text-slate-900 dark:text-slate-100">Nama Aset:</strong>{' '}
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-[11px] bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                      Wrap Text Aktif (Tidak terpotong)
+                    </span>
+                  </span>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                   <input
@@ -695,21 +700,21 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                             {asset.barcode}
                           </span>
 
-                          {/* 2. NAMA ASET */}
-                          <span className="font-bold text-[10.5px] text-slate-800 truncate mt-0.5">
+                          {/* 2. NAMA ASET (Wrap Text Otomatis) */}
+                          <span className="font-bold text-[10.5px] text-slate-800 leading-snug break-words mt-0.5">
                             {asset.name}
                           </span>
 
-                          {/* 3. NAMA OUTLET */}
+                          {/* 3. NAMA OUTLET (Wrap Text) */}
                           {showOutlet && (
-                            <span className="text-[9.5px] text-slate-600 truncate mt-0.5">
+                            <span className="text-[9.5px] text-slate-600 leading-snug break-words mt-0.5">
                               {asset.outlet ? `Outlet: ${asset.outlet}` : 'Outlet: Umum'}
                             </span>
                           )}
 
                           {/* Optional: LOKASI ASET */}
                           {showLocation && asset.location && (
-                            <span className="text-[9px] font-bold text-amber-700 truncate mt-0.5">
+                            <span className="text-[9px] font-bold text-amber-700 leading-snug break-words mt-0.5">
                               Lokasi: {asset.location}
                             </span>
                           )}

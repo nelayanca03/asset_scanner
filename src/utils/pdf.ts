@@ -200,26 +200,26 @@ async function generateMinimalistQrPdf(
   const printableWidth = pageWidth - marginX * 2 - (cols - 1) * colGap;
   const cardWidth = printableWidth / cols;
   
-  // Adaptive card height based on column count
-  let cardHeight = 36;
-  let qrSize = 24;
+  // Adaptive card height based on column count (generous space for multi-line wrapped text)
+  let cardHeight = 42;
+  let qrSize = 25;
 
   if (cols === 1) {
-    cardHeight = 32;
+    cardHeight = 36;
     qrSize = 26;
   } else if (cols === 2) {
-    cardHeight = 38;
-    qrSize = 25;
+    cardHeight = 45;
+    qrSize = 26;
   } else if (cols === 3) {
-    cardHeight = 34;
-    qrSize = 21;
+    cardHeight = 42;
+    qrSize = 22;
   }
 
   // Adjust for user's barcodeSize preference
   if (options.barcodeSize === 'small') {
     qrSize = Math.max(16, qrSize - 4);
   } else if (options.barcodeSize === 'jumbo') {
-    qrSize = Math.min(cardHeight - 6, qrSize + 4);
+    qrSize = Math.min(cardHeight - 8, qrSize + 4);
   }
 
   let currentY = marginY;
@@ -319,28 +319,38 @@ async function generateMinimalistQrPdf(
     const codeText = asset.barcode || '-';
     doc.text(codeText, textStartX, textY);
 
-    // Line 2: NAMA ASET
-    textY += (cols === 3 ? 5.5 : 6.5);
+    // Line 2: NAMA ASET (WRAP TEXT - Otomatis ke baris baru bila panjang)
+    textY += (cols === 3 ? 4.8 : 5.8);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(cols === 3 ? 8 : 9);
+    doc.setFontSize(cols === 3 ? 8 : 8.5);
     doc.setTextColor(30, 41, 59); // slate-800
-    // Truncate cleanly if too long for column width
-    const maxChars = cols === 1 ? 55 : cols === 2 ? 30 : 20;
-    const cleanName = asset.name.length > maxChars ? asset.name.substring(0, maxChars - 2) + '...' : asset.name;
-    doc.text(cleanName, textStartX, textY);
 
-    // Line 3: NAMA OUTLET
-    textY += (cols === 3 ? 5 : 5.8);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(cols === 3 ? 7 : 8);
-    doc.setTextColor(71, 85, 105); // slate-600
-    const outletText = asset.outlet ? `Outlet: ${asset.outlet}` : 'Outlet: Umum';
-    const cleanOutlet = outletText.length > maxChars ? outletText.substring(0, maxChars - 2) + '...' : outletText;
-    doc.text(cleanOutlet, textStartX, textY);
+    const nameLineHeight = cols === 3 ? 3.6 : 4.0;
+    // Otomatis pecah menjadi beberapa baris sesuai lebar kolom yang tersedia
+    const nameLines: string[] = doc.splitTextToSize(asset.name || 'Aset', availableTextWidth);
+    const displayLines = nameLines.slice(0, 3);
+    if (nameLines.length > 3) {
+      displayLines[2] = displayLines[2].substring(0, Math.max(0, displayLines[2].length - 3)) + '...';
+    }
+    doc.text(displayLines, textStartX, textY);
+    textY += displayLines.length * nameLineHeight;
+
+    // Line 3: NAMA OUTLET (Juga wrap text bila nama outlet panjang)
+    if (options.showOutlet !== false) {
+      textY += 0.8;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(cols === 3 ? 7 : 7.5);
+      doc.setTextColor(71, 85, 105); // slate-600
+      const outletRaw = asset.outlet ? `Outlet: ${asset.outlet}` : 'Outlet: Umum';
+      const outletLines: string[] = doc.splitTextToSize(outletRaw, availableTextWidth);
+      const displayOutlet = outletLines.slice(0, 2);
+      doc.text(displayOutlet, textStartX, textY);
+      textY += displayOutlet.length * (cols === 3 ? 3.0 : 3.4);
+    }
 
     // Optional Additional Line: Lokasi Aset (e.g. Dapur, Service)
     if (options.showLocation && asset.location) {
-      textY += (cols === 3 ? 4.5 : 5.2);
+      textY += 0.5;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(cols === 3 ? 6.5 : 7.5);
       doc.setTextColor(180, 83, 9); // amber-700
@@ -437,12 +447,13 @@ async function generateAssetCardsPdf(
     doc.setTextColor(180, 83, 9);
     doc.text(`LOKASI: ${locationText.toUpperCase()}`, x + cardWidth - 3.5, y + 7.5, { align: 'right' });
 
-    // 3. Asset Name
+    // 3. Asset Name (WRAP TEXT)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
     doc.setTextColor(15, 23, 42);
-    const truncatedName = asset.name.length > 34 ? asset.name.substring(0, 32) + '...' : asset.name;
-    doc.text(truncatedName, x + 3.5, y + 16.5);
+    const maxNameWidth = cardWidth - 7;
+    const nameLines: string[] = doc.splitTextToSize(asset.name || 'Aset', maxNameWidth);
+    doc.text(nameLines.slice(0, 2), x + 3.5, y + 15.5);
 
     // 4. Barcode or QR Code
     if (options.barcodeType === 'QR') {
