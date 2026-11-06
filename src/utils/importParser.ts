@@ -4,9 +4,10 @@ import { sanitizeBarcode, findDuplicateAsset } from './validation';
 
 export interface ParsedImportRow {
   barcode: string;
-  name: string;
+  name: string;        // Nama Aset 2 (Untuk Ekspor)
+  barcodeName: string; // Nama Aset 1 (Yang Dijadikan Barcode, sebelumnya Lokasi)
   outlet: string;
-  location: string; // Lokasi Aset (e.g. Dapur, Service)
+  location: string;    // Kompatibilitas: sama dengan barcodeName (Nama Aset 1)
   category: AssetCategory;
   serialNumber?: string;
   notes?: string;
@@ -119,9 +120,45 @@ export async function parseExcelOrCsvFile(
       return '';
     };
 
-    const rawName = findVal(['NAMA', 'NAMA ASET', 'NAMA BARANG', 'NAME', 'ITEM', 'DESKRIPSI']);
-    const rawAssetId = findVal(['ASSET ID', 'KODE ASET', 'BARCODE', 'ASSET_ID', 'TAG', 'KODE', 'ID']);
-    const rawLokasi = findVal(['LOKASI', 'LOKASI ASET', 'TEMPAT', 'NAMA TEMPAT', 'RUANGAN']);
+    // Nama Aset 2 (Untuk Ekspor)
+    const rawName = findVal([
+      'NAMA ASET 2 (EKSPOR)',
+      'NAMA ASET 2',
+      'NAMA EKSPOR',
+      'NAMA ASET EKSPOR',
+      'NAMA',
+      'NAMA ASET',
+      'NAMA BARANG',
+      'NAME',
+      'ITEM',
+      'DESKRIPSI',
+    ]);
+
+    // Nama Aset 1 (Yang Dijadikan Barcode, menggantikan lokasi)
+    const rawBarcodeName = findVal([
+      'NAMA ASET 1 (BARCODE)',
+      'NAMA ASET 1',
+      'NAMA BARCODE',
+      'NAMA ASET BARCODE',
+      'NAMA ASET YANG DIJADIKAN BARCODE',
+      'LOKASI',
+      'LOKASI ASET',
+      'TEMPAT',
+      'NAMA TEMPAT',
+      'RUANGAN',
+    ]);
+
+    // Kode Aset / Barcode ID
+    const rawAssetId = findVal([
+      'ASSET ID',
+      'KODE ASET',
+      'BARCODE',
+      'ASSET_ID',
+      'TAG',
+      'KODE',
+      'ID',
+    ]);
+
     const rawOutlet = findVal(['OUTLET', 'NAMA OUTLET', 'CABANG', 'STORE']);
     const rawQty = findVal(['QTY', 'JUMLAH', 'QUANTITY']);
     const rawUom = findVal(['UOM', 'SATUAN', 'UNIT']);
@@ -129,7 +166,7 @@ export async function parseExcelOrCsvFile(
     const rawStatus = findVal(['STATUS', 'KONDISI']);
     const rawSerial = findVal(['SERIAL', 'SERIAL NUMBER', 'SN', 'NO SERI']);
 
-    if (!rawName && !rawAssetId) {
+    if (!rawName && !rawAssetId && !rawBarcodeName) {
       continue;
     }
 
@@ -142,17 +179,20 @@ export async function parseExcelOrCsvFile(
       assetStatus = 'Dalam Perbaikan';
     }
 
-    const individualIds = extractAssetIds(rawAssetId);
+    // Disclaimer: Jika kode aset tidak ada di file, gunakan Nama Aset 1 atau Nama Aset sebagai barcode
+    const idSource = rawAssetId || rawBarcodeName || rawName;
+    const individualIds = extractAssetIds(idSource);
     const outletName = rawOutlet || defaultOutlet;
-    const locationName = rawLokasi || 'Dapur';
-    const inferredCategory = rawKategori ? (rawKategori as AssetCategory) : inferCategoryFromName(rawName);
+    const barcodeNameVal = rawBarcodeName || 'Dapur';
+    const inferredCategory = rawKategori ? (rawKategori as AssetCategory) : inferCategoryFromName(rawName || barcodeNameVal);
 
     if (individualIds.length === 0 || (individualIds.length === 1 && !individualIds[0])) {
       parsedItems.push({
         barcode: '',
-        name: rawName || 'Tanpa Nama',
+        name: rawName || barcodeNameVal || 'Tanpa Nama',
+        barcodeName: barcodeNameVal,
         outlet: outletName,
-        location: locationName,
+        location: barcodeNameVal,
         category: inferredCategory,
         serialNumber: rawSerial,
         notes: rawUom ? `UOM: ${rawUom}` : undefined,
@@ -176,7 +216,7 @@ export async function parseExcelOrCsvFile(
       if (!cleanBarcode) {
         isValid = false;
         errorReason = 'Kode barcode tidak valid';
-      } else if (!rawName) {
+      } else if (!rawName && !barcodeNameVal) {
         isValid = false;
         errorReason = 'Nama aset kosong';
       } else if (isDuplicate) {
@@ -186,9 +226,10 @@ export async function parseExcelOrCsvFile(
 
       parsedItems.push({
         barcode: cleanBarcode,
-        name: rawName,
+        name: rawName || barcodeNameVal || 'Tanpa Nama',
+        barcodeName: barcodeNameVal,
         outlet: outletName,
-        location: locationName,
+        location: barcodeNameVal,
         category: inferredCategory,
         serialNumber: rawSerial,
         notes: rawUom ? `Satuan: ${rawUom}${rawQty ? `, Qty: ${rawQty}` : ''}` : undefined,
@@ -207,40 +248,41 @@ export async function parseExcelOrCsvFile(
   return parsedItems;
 }
 
-// Sample dataset based on the user's Excel attachment image
+// Sample dataset based on the user's Excel attachment image with Nama Aset 2 (Ekspor) and Nama Aset 1 (Barcode)
 export const USER_ATTACHMENT_SAMPLE_ROWS = [
-  { NAMA: 'LEMARI S/S 4 LACI 2 PINTU 190*42*75', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2024-06-03-0001' },
-  { NAMA: 'BRACKET TV', QTY: '1', UOM: 'UNIT', LOKASI: 'SERVICE', 'ASSET ID': 'FFE-2022-12-30-0001' },
-  { NAMA: 'SHOWCASE DINGIN GMP-RTW-60L (87*62*57)', QTY: '1', UOM: 'UNIT', LOKASI: 'SERVICE', 'ASSET ID': 'FFE-2022-12-21-0003' },
-  { NAMA: 'SHOWCASE HOT (90*44*62)', QTY: '1', UOM: 'UNIT', LOKASI: 'SERVICE', 'ASSET ID': 'FFE-2022-12-18-0001' },
-  { NAMA: 'STEAMER DIMSUM 8 LUBANG', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0004' },
-  { NAMA: 'LEMARI 2 TKT 1 PINTU + 2 LACI (107*62*120)', QTY: '1 -> 0', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2024-11-30-0003' },
-  { NAMA: 'MICROWAVE PANASONIC M-ST324M', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2022-12-19-0002' },
-  { NAMA: 'RAK SS 260*36*24', QTY: '2', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0006FFE-2023-10-01-0007' },
-  { NAMA: 'RAK SS 70*36*24', QTY: '2', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0008FFE-2023-10-01-0009' },
-  { NAMA: 'MEJA SS 2 TKT (128*44*80)', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2022-12-21-0002' },
-  { NAMA: 'PENGGORENGAN ELEKTRIK GETRA', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2022-12-13-0001' },
-  { NAMA: 'KOTAK FINGER PRINT (20*20*10)', QTY: '1', UOM: 'UNIT', LOKASI: 'SERVICE', 'ASSET ID': 'FFE-2023-10-01-0010' },
-  { NAMA: 'FREEZER 2 PINTU (170*64*80)', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2017-04-30-0009' },
-  { NAMA: 'MEJA SS 3 TKT (110*70*86)', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0011' },
-  { NAMA: 'LEMARI GANTUNG SS 2 PINTU (150*70*48)', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2023-01-04-0003' },
-  { NAMA: 'KOMPOR HIGH PRESS 2 JALUR', QTY: '4', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0012FFE-2023-10-01-0013FFE-2023-10-01-0014FFE-2023-10-01-0015' },
-  { NAMA: 'KUNCI MONYET 12"', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2025-07-01-0001' },
-  { NAMA: 'GEASTRAP', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0016' },
-  { NAMA: 'TABUNG RACUN API 6 KG', QTY: '2', UOM: 'UNIT', LOKASI: 'SERVICE', 'ASSET ID': 'FFE-2022-12-03-0001FFE-2023-10-01-0017' },
-  { NAMA: 'TEMPAT KOMPOR (45*45*15)', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2025-10-01-0007' },
-  { NAMA: 'TROLLY GAS', QTY: '1', UOM: 'UNIT', LOKASI: 'DAPUR', 'ASSET ID': 'FFE-2025-10-01-0006' },
+  { 'NAMA ASET 2 (EKSPOR)': 'LEMARI S/S 4 LACI 2 PINTU 190*42*75', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2024-06-03-0001', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'BRACKET TV', 'NAMA ASET 1 (BARCODE)': 'SERVICE', 'ASSET ID': 'FFE-2022-12-30-0001', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'SHOWCASE DINGIN GMP-RTW-60L (87*62*57)', 'NAMA ASET 1 (BARCODE)': 'SERVICE', 'ASSET ID': 'FFE-2022-12-21-0003', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'SHOWCASE HOT (90*44*62)', 'NAMA ASET 1 (BARCODE)': 'SERVICE', 'ASSET ID': 'FFE-2022-12-18-0001', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'STEAMER DIMSUM 8 LUBANG', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0004', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'LEMARI 2 TKT 1 PINTU + 2 LACI (107*62*120)', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2024-11-30-0003', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1 -> 0', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'MICROWAVE PANASONIC M-ST324M', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2022-12-19-0002', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'RAK SS 260*36*24', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0006FFE-2023-10-01-0007', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '2', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'RAK SS 70*36*24', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0008FFE-2023-10-01-0009', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '2', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'MEJA SS 2 TKT (128*44*80)', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2022-12-21-0002', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'PENGGORENGAN ELEKTRIK GETRA', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2022-12-13-0001', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'KOTAK FINGER PRINT (20*20*10)', 'NAMA ASET 1 (BARCODE)': 'SERVICE', 'ASSET ID': 'FFE-2023-10-01-0010', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'FREEZER 2 PINTU (170*64*80)', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2017-04-30-0009', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'MEJA SS 3 TKT (110*70*86)', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0011', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'LEMARI GANTUNG SS 2 PINTU (150*70*48)', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2023-01-04-0003', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'KOMPOR HIGH PRESS 2 JALUR', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0012FFE-2023-10-01-0013FFE-2023-10-01-0014FFE-2023-10-01-0015', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '4', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'KUNCI MONYET 12"', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2025-07-01-0001', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'GEASTRAP', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2023-10-01-0016', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'TABUNG RACUN API 6 KG', 'NAMA ASET 1 (BARCODE)': 'SERVICE', 'ASSET ID': 'FFE-2022-12-03-0001FFE-2023-10-01-0017', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '2', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'TEMPAT KOMPOR (45*45*15)', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2025-10-01-0007', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
+  { 'NAMA ASET 2 (EKSPOR)': 'TROLLY GAS', 'NAMA ASET 1 (BARCODE)': 'DAPUR', 'ASSET ID': 'FFE-2025-10-01-0006', 'NAMA OUTLET': 'Outlet Grand Indonesia', QTY: '1', UOM: 'UNIT' },
 ];
 
 // Download sample Excel template
 export function downloadImportExcelTemplate() {
   const ws = XLSX.utils.json_to_sheet(USER_ATTACHMENT_SAMPLE_ROWS);
   ws['!cols'] = [
-    { wch: 42 }, // NAMA
+    { wch: 42 }, // NAMA ASET 2 (EKSPOR)
+    { wch: 22 }, // NAMA ASET 1 (BARCODE)
+    { wch: 48 }, // ASSET ID
+    { wch: 25 }, // NAMA OUTLET
     { wch: 10 }, // QTY
     { wch: 8 },  // UOM
-    { wch: 18 }, // LOKASI
-    { wch: 48 }, // ASSET ID
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Data Aset');

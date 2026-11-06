@@ -117,11 +117,11 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
 
             <div className="space-y-1">
               <span className="text-slate-500 dark:text-slate-400 block flex items-center gap-1">
-                <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                Lokasi Aset / Tempat
+                <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                Nama Aset 1 (Barcode) / Lokasi
               </span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200 block text-sm">
-                {asset.location || '-'}
+              <span className="font-semibold text-indigo-700 dark:text-indigo-300 block text-sm">
+                {asset.barcodeName || asset.location || '-'}
               </span>
             </div>
 

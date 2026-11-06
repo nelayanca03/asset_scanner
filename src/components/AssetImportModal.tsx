@@ -88,12 +88,16 @@ export const AssetImportModal: React.FC<AssetImportModalProps> = ({
         const isBatchDup = processedInBatch.has(clean);
         const isDup = isDbDup || isBatchDup;
 
+        const name2 = (r as Record<string, string>)['NAMA ASET 2 (EKSPOR)'] || (r as Record<string, string>).NAMA || 'Aset';
+        const name1 = (r as Record<string, string>)['NAMA ASET 1 (BARCODE)'] || (r as Record<string, string>).LOKASI || 'DAPUR';
+
         rows.push({
           barcode: clean,
-          name: r.NAMA,
+          name: name2,
+          barcodeName: name1,
           outlet: defaultOutlet,
-          location: r.LOKASI === 'SERVICE' ? 'Service' : 'Dapur',
-          category: inferCategoryFromName(r.NAMA),
+          location: name1,
+          category: inferCategoryFromName(name2),
           status,
           notes: `Satuan: ${r.UOM}, Qty Ref: ${r.QTY}`,
           isDuplicate: isDup,
@@ -131,8 +135,9 @@ export const AssetImportModal: React.FC<AssetImportModalProps> = ({
       id: `imported-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
       barcode: row.barcode,
       name: row.name,
+      barcodeName: row.barcodeName || row.location || customLocation || defaultLocation,
       outlet: row.outlet || customOutlet || defaultOutlet,
-      location: row.location || customLocation || defaultLocation,
+      location: row.barcodeName || row.location || customLocation || defaultLocation,
       category: row.category,
       status: row.status,
       serialNumber: row.serialNumber,
@@ -157,7 +162,7 @@ export const AssetImportModal: React.FC<AssetImportModalProps> = ({
               Import Data Aset dari Excel / CSV
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Unggah file data aset (seperti format NAMA, QTY, UOM, LOKASI, ASSET ID).
+              Unggah file data aset (format Nama Aset 1 Barcode, Nama Aset 2 Ekspor, Outlet, Kode Aset).
             </p>
           </div>
           <button
@@ -170,12 +175,25 @@ export const AssetImportModal: React.FC<AssetImportModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-5">
+          {/* Disclaimer Banner per Permintaan User */}
+          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl text-xs flex items-start gap-3 shadow-xs">
+            <span className="text-amber-600 dark:text-amber-400 font-bold text-base leading-none mt-0.5">⚠️</span>
+            <div className="space-y-1">
+              <div className="font-bold text-amber-900 dark:text-amber-200 text-xs">
+                Disclaimer: Nama Aset yang Dijadikan Barcode
+              </div>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                Untuk sekarang nama aset yang dijadikan barcode. Kolom <strong>Lokasi</strong> telah diubah menjadi <strong>Nama Aset 1 (Nama Barcode)</strong>, lalu tersedia <strong>Nama Aset 2 (Untuk Ekspor)</strong> yang digunakan saat mencetak label/ekspor dokumen.
+              </p>
+            </div>
+          </div>
+
           {/* Top Info & Template Helper Strip */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
               <Info className="w-4 h-4 text-indigo-500 shrink-0" />
               <span>
-                Format kolom yang didukung: <strong>NAMA</strong>, <strong>LOKASI / OUTLET</strong>, <strong>ASSET ID / BARCODE</strong>, QTY, UOM.
+                Kolom didukung: <strong>NAMA ASET 1 (BARCODE)</strong>, <strong>NAMA ASET 2 (EKSPOR)</strong>, <strong>ASSET ID / BARCODE</strong>, OUTLET, QTY.
               </span>
             </div>
 
@@ -281,9 +299,14 @@ export const AssetImportModal: React.FC<AssetImportModalProps> = ({
                     <tr>
                       <th className="py-2.5 px-3">Status</th>
                       <th className="py-2.5 px-3">Kode Aset (Barcode)</th>
-                      <th className="py-2.5 px-3">Nama Aset</th>
+                      <th className="py-2.5 px-3">
+                        Nama Aset 1 (Barcode)
+                        <span className="block font-normal text-[10px] text-slate-400 dark:text-slate-500">
+                          (Sebelumnya Lokasi)
+                        </span>
+                      </th>
+                      <th className="py-2.5 px-3">Nama Aset 2 (Ekspor)</th>
                       <th className="py-2.5 px-3">Nama Outlet</th>
-                      <th className="py-2.5 px-3">Lokasi Aset</th>
                       <th className="py-2.5 px-3">Kategori</th>
                       <th className="py-2.5 px-3">Status</th>
                     </tr>
@@ -321,16 +344,16 @@ export const AssetImportModal: React.FC<AssetImportModalProps> = ({
                         <td className="py-2 px-3 font-mono font-semibold text-slate-800 dark:text-slate-200">
                           {row.barcode || '-'}
                         </td>
+                        <td className="py-2 px-3">
+                          <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded text-[11px] border border-indigo-200 dark:border-indigo-800">
+                            {row.barcodeName || row.location || '-'}
+                          </span>
+                        </td>
                         <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100 max-w-[200px] truncate">
                           {row.name}
                         </td>
                         <td className="py-2 px-3 text-slate-700 dark:text-slate-300">
                           {row.outlet}
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className="font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[11px] border border-slate-200 dark:border-slate-700">
-                            {row.location || '-'}
-                          </span>
                         </td>
                         <td className="py-2 px-3 text-slate-600 dark:text-slate-400 text-[11px]">
                           {row.category}

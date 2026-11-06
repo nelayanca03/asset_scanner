@@ -13,9 +13,10 @@ export type AssetStatus = 'Aktif' | 'Dipinjam' | 'Dalam Perbaikan' | 'Diarsipkan
 export interface Asset {
   id: string;
   barcode: string;           // Kode Aset / Barcode Tag (e.g. AST-2026-0001)
-  name: string;              // Nama Aset
+  name: string;              // Nama Aset 2 (Untuk Ekspor)
   outlet: string;            // Nama Outlet / Cabang (e.g. Outlet Grand Indonesia)
-  location: string;          // Lokasi Aset / Nama Tempat (e.g. Dapur, Service, Bar, Gudang)
+  location: string;          // Nama Aset 1 (Yang Dijadikan Barcode, sebelumnya Lokasi Aset)
+  barcodeName?: string;      // Alias Nama Aset 1 (Nama Barcode)
   category: AssetCategory;   // Kategori
   status: AssetStatus;       // Status operasional
   serialNumber?: string;     // Nomor Seri Pabrik (Opsional)

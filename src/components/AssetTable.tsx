@@ -289,6 +289,17 @@ export const AssetTable: React.FC<AssetTableProps> = ({
         )}
       </div>
 
+      {/* Disclaimer Aset & Barcode Banner */}
+      <div className="p-3 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl text-xs flex items-start gap-2.5 shadow-xs">
+        <span className="text-amber-600 dark:text-amber-400 font-bold text-sm mt-0.5">⚠️</span>
+        <div className="text-amber-900 dark:text-amber-200 space-y-0.5">
+          <span className="font-bold">Disclaimer Format Aset & Barcode:</span>
+          <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+            Untuk sekarang nama aset yang dijadikan barcode. Kolom <strong>Lokasi</strong> telah diubah menjadi <strong>Nama Aset 1 (Nama Barcode)</strong>, lalu tersedia <strong>Nama Aset 2 (Untuk Ekspor)</strong> untuk cetak label & dokumen.
+          </p>
+        </div>
+      </div>
+
       {/* Main Data Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
@@ -327,7 +338,7 @@ export const AssetTable: React.FC<AssetTableProps> = ({
                   className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Nama Aset & Kategori</span>
+                    <span>Nama Aset 2 (Ekspor) & Kategori</span>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
@@ -351,7 +362,12 @@ export const AssetTable: React.FC<AssetTableProps> = ({
                   className="py-3 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white"
                 >
                   <div className="flex items-center gap-1">
-                    <span>Lokasi Aset</span>
+                    <div>
+                      <span>Nama Aset 1 (Barcode)</span>
+                      <span className="block text-[9.5px] font-normal text-slate-400 dark:text-slate-500">
+                        (Sebelumnya Lokasi)
+                      </span>
+                    </div>
                     <ArrowUpDown className="w-3 h-3 text-slate-400" />
                   </div>
                 </th>
@@ -423,8 +439,8 @@ export const AssetTable: React.FC<AssetTableProps> = ({
                       </td>
 
                       {/* Barcode Tag */}
-                      <td className="py-3 px-3">
-                        <span className="font-mono font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[11px] border border-slate-200 dark:border-slate-700">
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <span className="font-mono font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[11px] border border-slate-200 dark:border-slate-700 whitespace-nowrap inline-block">
                           {asset.barcode}
                         </span>
                       </td>
@@ -458,10 +474,10 @@ export const AssetTable: React.FC<AssetTableProps> = ({
                         </span>
                       </td>
 
-                      {/* Lokasi Aset */}
+                      {/* Nama Aset 1 (Barcode) */}
                       <td className="py-3 px-3">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded text-[11px] border border-slate-200 dark:border-slate-700">
-                          {asset.location || '-'}
+                        <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded text-[11px] border border-indigo-200 dark:border-indigo-800">
+                          {asset.barcodeName || asset.location || '-'}
                         </span>
                       </td>
 

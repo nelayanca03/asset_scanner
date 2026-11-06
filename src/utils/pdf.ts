@@ -20,6 +20,8 @@ export interface ExportPdfOptions {
   showStatus?: boolean;
   documentTitle?: string;
   showDocumentHeader?: boolean;
+  leftMargin?: number; // Gap kosong sebelah kiri (dalam mm), default 30mm (3 cm)
+  rowDensity?: 'super_compact' | 'compact' | 'standard'; // default: super_compact
 }
 
 /**
@@ -190,51 +192,45 @@ async function generateMinimalistQrPdf(
   const pageHeight = doc.internal.pageSize.getHeight();
 
   const cols = options.columns || 2;
-  const marginX = 10;
-  const marginY = 12;
-  const colGap = 5;
-  const rowGap = 4;
+  // Gap kosong sebelah kiri 3 cm (30 mm) sesuai permintaan user untuk jilid/staples
+  const leftMargin = options.leftMargin !== undefined ? options.leftMargin : 30;
+  const rightMargin = 8;
+  const marginY = 10;
+  const colGap = cols === 1 ? 0 : 3.5;
+  const rowGap = 2.2;
 
   const qrMap = await generateQrDataUrlMap(assets);
 
-  // Card dimensions based on columns and orientation
-  const printableWidth = pageWidth - marginX * 2 - (cols - 1) * colGap;
+  // Card dimensions based on columns and orientation with 3 cm left gap
+  const printableWidth = pageWidth - leftMargin - rightMargin - (cols - 1) * colGap;
   const cardWidth = printableWidth / cols;
   
-  // Adaptive card height based on column count (generous space for multi-line wrapped text)
-  let cardHeight = 42;
-  let qrSize = 25;
+  // Dibuat dipersempit dan rapat tanpa sisa ruang kosong (compact row height)
+  // Memuat 24 - 36+ item per lembar A4
+  const isSuperCompact = options.rowDensity !== 'standard';
+  let cardHeight = cols === 1 ? 16 : isSuperCompact ? 19 : 24;
+  let qrSize = cols === 1 ? 14 : isSuperCompact ? 15.5 : 19;
 
-  if (cols === 1) {
-    cardHeight = 36;
-    qrSize = 26;
-  } else if (cols === 2) {
-    cardHeight = 45;
-    qrSize = 26;
-  } else if (cols === 3) {
-    cardHeight = 42;
-    qrSize = 22;
-  }
-
-  // Adjust for user's barcodeSize preference
   if (options.barcodeSize === 'small') {
-    qrSize = Math.max(16, qrSize - 4);
+    qrSize = 13.5;
+    cardHeight = Math.max(16, cardHeight - 2.5);
   } else if (options.barcodeSize === 'jumbo') {
-    qrSize = Math.min(cardHeight - 8, qrSize + 4);
+    qrSize = 17;
+    cardHeight = cardHeight + 2;
   }
 
   let currentY = marginY;
 
-  // Header (Optional, user configurable)
+  // Header (Optional, user configurable) - respects 3 cm left margin
   if (options.showDocumentHeader !== false) {
     const title = options.documentTitle || 'LABEL ASET QR CODE';
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor(30, 41, 59);
-    doc.text(title, marginX, currentY + 4);
+    doc.text(title, leftMargin, currentY + 3.5);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(100, 116, 139);
     const dateStr = new Date().toLocaleDateString('id-ID', {
       day: 'numeric',
@@ -242,21 +238,20 @@ async function generateMinimalistQrPdf(
       year: 'numeric',
     });
     doc.text(
-      `Format Minimalis · Total: ${assets.length} Aset · Dicetak: ${dateStr}`,
-      pageWidth - marginX,
-      currentY + 4,
+      `Total: ${assets.length} Aset · Dicetak: ${dateStr} (Gap Kiri: 3 cm)`,
+      pageWidth - rightMargin,
+      currentY + 3.5,
       { align: 'right' }
     );
 
     // Subtle divider
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.3);
-    doc.line(marginX, currentY + 7, pageWidth - marginX, currentY + 7);
+    doc.line(leftMargin, currentY + 6, pageWidth - rightMargin, currentY + 6);
 
-    currentY += 11;
+    currentY += 9;
   }
 
-  let currentX = marginX;
   let colIndex = 0;
 
   for (let idx = 0; idx < assets.length; idx++) {
@@ -266,37 +261,34 @@ async function generateMinimalistQrPdf(
     if (currentY + cardHeight > pageHeight - marginY) {
       doc.addPage();
       currentY = marginY;
-      currentX = marginX;
       colIndex = 0;
     }
 
-    const cardX = marginX + colIndex * (cardWidth + colGap);
+    const cardX = leftMargin + colIndex * (cardWidth + colGap);
     const cardY = currentY;
 
     // 1. Draw Card Border / Guideline
     if (options.borderStyle === 'solid') {
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.25);
-      doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 1.5, 1.5, 'S');
+      doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 1.2, 1.2, 'S');
     } else if (options.borderStyle === 'dashed') {
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.25);
-      doc.setLineDashPattern([1.5, 1.5], 0);
+      doc.setLineDashPattern([1.2, 1.2], 0);
       doc.rect(cardX, cardY, cardWidth, cardHeight, 'S');
-      doc.setLineDashPattern([], 0); // reset dash
+      doc.setLineDashPattern([], 0);
     }
-    // if 'none', no outer border drawn
 
     // 2. Draw 2D QR Code on the LEFT
     const qrUrl = qrMap.get(asset.id || asset.barcode);
-    const qrPadding = 3;
+    const qrPadding = 1.5;
     const qrX = cardX + qrPadding;
     const qrY = cardY + (cardHeight - qrSize) / 2;
 
     if (qrUrl) {
       doc.addImage(qrUrl, 'PNG', qrX, qrY, qrSize, qrSize);
     } else {
-      // Fallback placeholder box
       doc.setFillColor(241, 245, 249);
       doc.rect(qrX, qrY, qrSize, qrSize, 'F');
       doc.setFont('helvetica', 'normal');
@@ -306,57 +298,95 @@ async function generateMinimalistQrPdf(
     }
 
     // 3. Draw Details on the RIGHT side of QR Code
-    // Required user spec: "disamping bagian kanan nya buat kode aset, nama aset, nama outlet"
-    const textStartX = qrX + qrSize + 3.5;
-    const availableTextWidth = cardWidth - (qrSize + qrPadding * 2 + 5);
-
-    // Vertical alignment layout for the 3 main fields
-    let textY = cardY + 7;
-
-    // Line 1: KODE ASET
-    doc.setFont('courier', 'bold');
-    doc.setFontSize(cols === 3 ? 8 : 9.5);
-    doc.setTextColor(15, 23, 42); // slate-900
-    const codeText = asset.barcode || '-';
-    doc.text(codeText, textStartX, textY);
-
-    // Line 2: NAMA ASET (WRAP TEXT - Otomatis ke baris baru bila panjang)
-    textY += (cols === 3 ? 4.8 : 5.8);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(cols === 3 ? 8 : 8.5);
-    doc.setTextColor(30, 41, 59); // slate-800
-
-    const nameLineHeight = cols === 3 ? 3.6 : 4.0;
-    // Otomatis pecah menjadi beberapa baris sesuai lebar kolom yang tersedia
-    const nameLines: string[] = doc.splitTextToSize(asset.name || 'Aset', availableTextWidth);
-    const displayLines = nameLines.slice(0, 3);
-    if (nameLines.length > 3) {
-      displayLines[2] = displayLines[2].substring(0, Math.max(0, displayLines[2].length - 3)) + '...';
-    }
-    doc.text(displayLines, textStartX, textY);
-    textY += displayLines.length * nameLineHeight;
-
-    // Line 3: NAMA OUTLET (Diinput langsung oleh pengguna saat mengedit ekspor)
+    // Disusun dalam row kompak yang sama agar dipersempit dan memuat banyak item per lembar
+    const textStartX = qrX + qrSize + 2.5;
+    const availableTextWidth = cardWidth - (qrSize + qrPadding * 2 + 4);
     const effectiveOutlet = options.customOutletName?.trim() || asset.outlet?.trim() || '';
-    if (options.showOutlet !== false && effectiveOutlet) {
-      textY += 0.8;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(cols === 3 ? 7 : 7.5);
-      doc.setTextColor(71, 85, 105); // slate-600
-      const outletRaw = `Outlet: ${effectiveOutlet}`;
-      const outletLines: string[] = doc.splitTextToSize(outletRaw, availableTextWidth);
-      const displayOutlet = outletLines.slice(0, 2);
-      doc.text(displayOutlet, textStartX, textY);
-      textY += displayOutlet.length * (cols === 3 ? 3.0 : 3.4);
-    }
 
-    // Optional Additional Line: Lokasi Aset (e.g. Dapur, Service)
-    if (options.showLocation && asset.location) {
-      textY += 0.5;
+    if (cols === 1) {
+      // 1 Kolom: 1 Baris Horizontal Penuh (Semua sejajar dalam 1 row!)
+      const midY = cardY + cardHeight / 2 + 1;
+      
+      // KODE ASET - STRICT 1 BARIS (JANGAN DIWRAP)
+      const cleanBarcode = asset.barcode || '-';
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(cleanBarcode, textStartX, midY);
+
+      // NAMA ASET (tengah) - Wrap / Fleksibel
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(cols === 3 ? 6.5 : 7.5);
-      doc.setTextColor(180, 83, 9); // amber-700
-      doc.text(`Lokasi: ${asset.location}`, textStartX, textY);
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      const nameX = textStartX + 42;
+      const cleanName = doc.splitTextToSize(asset.name || 'Aset', Math.max(20, availableTextWidth - 80));
+      doc.text(cleanName[0] || '', nameX, midY);
+
+      // Outlet (kanan) - User: Boleh wraptext!
+      if (options.showOutlet !== false && effectiveOutlet) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(71, 85, 105);
+        const outletLines = doc.splitTextToSize(`Outlet: ${effectiveOutlet}`, 45);
+        const outletY = outletLines.length > 1 ? midY - 1.8 : midY;
+        doc.text(outletLines, cardX + cardWidth - 2.5, outletY, { align: 'right' });
+      }
+    } else {
+      // 2 atau 3 Kolom: Row 1 Kode Aset & Outlet Sejajar (Same Row), Row 2 Nama Aset
+      const row1Y = cardY + 5.2;
+      
+      // Row 1 - Kiri: KODE ASET - STRICT 1 BARIS (JANGAN PERNAH DI-WRAPTEXT!)
+      const cleanBarcode = asset.barcode || '-';
+      doc.setFont('courier', 'bold');
+      let barcodeFontSize = cols === 3 ? 7.2 : 8.5;
+      doc.setFontSize(barcodeFontSize);
+
+      let barcodeWidth = doc.getTextWidth(cleanBarcode);
+      const hasOutlet = options.showOutlet !== false && Boolean(effectiveOutlet);
+      const maxBarcodeWidth = hasOutlet ? availableTextWidth * 0.65 : availableTextWidth;
+
+      // Auto-scale jika kode barcode sangat panjang agar TETAP 1 BARIS UTUH tanpa wrap
+      while (barcodeWidth > maxBarcodeWidth && barcodeFontSize > 5.2) {
+        barcodeFontSize -= 0.3;
+        doc.setFontSize(barcodeFontSize);
+        barcodeWidth = doc.getTextWidth(cleanBarcode);
+      }
+
+      doc.setTextColor(15, 23, 42);
+      // Dicetak langsung sebagai satu baris tunggal (tanpa pemecahan baris)
+      doc.text(cleanBarcode, textStartX, row1Y);
+
+      // Row 1 - Kanan: NAMA OUTLET (User request: Boleh wraptext!)
+      if (hasOutlet) {
+        doc.setFont('helvetica', 'normal');
+        let outletFontSize = cols === 3 ? 6.2 : 7.2;
+        doc.setFontSize(outletFontSize);
+        doc.setTextColor(71, 85, 105);
+        const outletText = `Outlet: ${effectiveOutlet}`;
+        const maxOutletWidth = Math.max(14, availableTextWidth - barcodeWidth - 1.5);
+        // Boleh wraptext multi-baris jika nama outlet panjang
+        const outletLines: string[] = doc.splitTextToSize(outletText, maxOutletWidth);
+        const displayOutletLines = outletLines.slice(0, 2);
+        doc.text(displayOutletLines, cardX + cardWidth - 2, row1Y, { align: 'right' });
+      }
+
+      // Row 2: NAMA ASET (HANYA NAMA ASET YANG BOLEH DI-WRAP TEXT!)
+      const row2Y = cardY + 9.8;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(cols === 3 ? 7.2 : 8.2);
+      doc.setTextColor(30, 41, 59);
+      // Nama Aset di-wrap rapi menjadi maksimal 2 baris
+      const nameLines: string[] = doc.splitTextToSize(asset.name || 'Aset', availableTextWidth);
+      const displayLines = nameLines.slice(0, 2);
+      doc.text(displayLines, textStartX, row2Y);
+
+      // Lokasi Aset inline badge jika diaktifkan
+      if (options.showLocation && asset.location) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(180, 83, 9);
+        doc.text(`[${asset.location}]`, textStartX, cardY + cardHeight - 1.5);
+      }
     }
 
     // Advance column / row
@@ -566,7 +596,7 @@ export async function exportAssetsToPDF(
       index + 1,
       '',
       options.customOutletName?.trim() || asset.outlet || '-',
-      asset.location || '-',
+      asset.barcodeName || asset.location || '-',
       asset.barcode,
       asset.name,
       asset.status,
@@ -578,7 +608,7 @@ export async function exportAssetsToPDF(
 
     autoTable(doc, {
       startY: 26,
-      head: [['No', barcodeType === 'QR' ? 'QR Code Tag' : 'Barcode Tag', 'Nama Outlet', 'Lokasi Aset', 'Kode Aset', 'Nama Aset', 'Status']],
+      head: [['No', barcodeType === 'QR' ? 'QR Code Tag' : 'Barcode Tag', 'Nama Outlet', 'Nama Aset 1 (Barcode)', 'Kode Aset', 'Nama Aset 2 (Ekspor)', 'Status']],
       body: tableRows,
       theme: 'grid',
       margin: { left: 10, right: 10, bottom: 12 },
@@ -602,7 +632,7 @@ export async function exportAssetsToPDF(
         1: { cellWidth: barcodeColWidth, minCellHeight: rowMinHeight, halign: 'center' },
         2: { cellWidth: 38, fontStyle: 'bold' },
         3: { cellWidth: 26, fontStyle: 'bold' },
-        4: { cellWidth: 36, font: 'courier', fontStyle: 'bold' },
+        4: { cellWidth: 38, font: 'courier', fontStyle: 'bold', overflow: 'ellipsize' },
         6: { cellWidth: 20, halign: 'center' },
       },
       didDrawCell: (data) => {

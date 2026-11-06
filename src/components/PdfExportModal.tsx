@@ -91,6 +91,10 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [barcodeSize, setBarcodeSize] = useState<'small' | 'standard' | 'jumbo'>('standard');
   const [borderStyle, setBorderStyle] = useState<'solid' | 'dashed' | 'none'>('solid');
+  // Gap kosong sebelah kiri (dalam mm), default 30mm = 3cm sesuai permintaan user
+  const [leftMargin, setLeftMargin] = useState<number>(30);
+  // Kerapatan baris kartu: super_compact (dipersempit tanpa ruang kosong)
+  const [rowDensity, setRowDensity] = useState<'super_compact' | 'standard'>('super_compact');
 
   // 3. Field Visibility & Custom Outlet Name (Diinput manual saat mengedit, tidak dari default)
   const [showOutlet, setShowOutlet] = useState<boolean>(true);
@@ -153,6 +157,8 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
     setOrientation('portrait');
     setBarcodeSize('standard');
     setBorderStyle('solid');
+    setLeftMargin(30);
+    setRowDensity('super_compact');
     setShowOutlet(true);
     setOutletNameInput('');
     setShowLocation(false);
@@ -184,6 +190,8 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
         showLocation,
         showDocumentHeader,
         documentTitle,
+        leftMargin,
+        rowDensity,
       };
       const fileName = await exportAssetsToPDF(activeAssets, options);
       onSuccessToast(`PDF berhasil dibuat & diunduh: ${fileName}`);
@@ -381,6 +389,71 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                   </div>
                 </div>
 
+                {/* Gap Kosong Sebelah Kiri (3 cm untuk jilid / binder) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Gap Kosong Sebelah Kiri (Area Jilid):
+                    </label>
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+                      {leftMargin / 10} cm ({leftMargin} mm)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[30, 20, 10].map((marginMm) => (
+                      <button
+                        key={marginMm}
+                        type="button"
+                        onClick={() => setLeftMargin(marginMm)}
+                        className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-all ${
+                          leftMargin === marginMm
+                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                        }`}
+                      >
+                        {marginMm === 30 ? '3 cm (Standar Jilid)' : `${marginMm / 10} cm`}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    *Sebelah kiri diberi jarak 3 cm agar aman saat dilubangi binder atau dijilid tanpa memotong barcode.
+                  </p>
+                </div>
+
+                {/* Kerapatan Baris (Super Kompak / Standar) */}
+                <div>
+                  <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400 block mb-1.5">
+                    Kerapatan Baris Kartu (Item per Halaman):
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRowDensity('super_compact')}
+                      className={`py-1.5 px-2.5 text-[11px] font-bold rounded-lg border transition-all ${
+                        rowDensity === 'super_compact'
+                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>Super Kompak (~26 Aset/Lembar)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRowDensity('standard')}
+                      className={`py-1.5 px-2.5 text-[11px] font-medium rounded-lg border transition-all ${
+                        rowDensity === 'standard'
+                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>Kompak Standar</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium mt-1">
+                    *Baris dipersempit rapat tanpa ruang kosong sisa di bawahnya.
+                  </p>
+                </div>
+
                 {/* Border Style */}
                 <div>
                   <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400 block mb-1.5">
@@ -432,17 +505,42 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
               </label>
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span className="font-semibold">Kode Aset</span> (Format Monospace Tebal)
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    <strong className="text-slate-900 dark:text-slate-100">Kode Aset:</strong>{' '}
+                    <span className="text-blue-700 dark:text-blue-400 font-semibold text-[11px] bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
+                      1 Baris Utuh (Tidak di-wrap)
+                    </span>
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
-                    <strong className="text-slate-900 dark:text-slate-100">Nama Aset:</strong>{' '}
+                    <strong className="text-slate-900 dark:text-slate-100">Nama Aset 2 (Ekspor):</strong>{' '}
                     <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-[11px] bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
-                      Wrap Text Aktif (Tidak terpotong)
+                      Wrap Text Aktif (Otomatis multi-baris jika panjang)
                     </span>
                   </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    <strong className="text-slate-900 dark:text-slate-100">Nama Outlet:</strong>{' '}
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-[11px] bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                      Wrap Text Aktif (Boleh multi-baris)
+                    </span>
+                  </span>
+                </div>
+
+                {/* Disclaimer Banner per Permintaan User */}
+                <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-xs">
+                    <span>⚠️</span>
+                    <span>Disclaimer Nama Aset & Barcode:</span>
+                  </div>
+                  <p className="text-[10.5px] leading-relaxed text-amber-800 dark:text-amber-300">
+                    Untuk sekarang nama aset yang dijadikan barcode. Tersedia <strong>Nama Aset 1 (Nama Barcode)</strong> dan <strong>Nama Aset 2 (Untuk Ekspor)</strong>.
+                  </p>
                 </div>
                 {/* Dedicated Outlet Name Input (Diinput saat mengedit ekspor) */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
@@ -501,7 +599,7 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                     className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
                   />
                   <span>
-                    Tampilkan <strong>Lokasi Aset</strong> (Dapur / Service)
+                    Tampilkan <strong>Nama Aset 1 (Nama Barcode)</strong>
                   </span>
                 </label>
               </div>
@@ -640,28 +738,45 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
             {/* Simulated A4 Paper Container with Real Live Preview Rendering */}
             <div className="flex-1 overflow-y-auto p-4 flex justify-center bg-slate-200/60 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner">
               <div
-                className={`bg-white text-slate-900 shadow-xl transition-all overflow-hidden p-6 ${
+                className={`bg-white text-slate-900 shadow-xl transition-all overflow-hidden relative ${
                   orientation === 'portrait'
                     ? 'w-full max-w-[560px] min-h-[720px]'
                     : 'w-full max-w-[720px] min-h-[500px]'
                 }`}
                 style={{
                   boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                  paddingTop: '18px',
+                  paddingBottom: '18px',
+                  paddingRight: '16px',
+                  paddingLeft: `${Math.max(16, leftMargin * 1.6)}px`,
                 }}
               >
+                {/* 3 CM Left Margin Guideline Strip (Area Jilid / Lubang Binder) */}
+                {leftMargin > 0 && (
+                  <div
+                    style={{ width: `${leftMargin * 1.6}px` }}
+                    className="absolute left-0 top-0 bottom-0 bg-slate-50/80 border-r-2 border-dashed border-indigo-200 pointer-events-none flex flex-col items-center justify-center text-[9px] text-indigo-400 font-bold select-none z-10"
+                    title="Area gap kosong sebelah kiri untuk lubang binder / jilid"
+                  >
+                    <span className="rotate-[-90deg] whitespace-nowrap tracking-wider">
+                      GAP KOSONG {leftMargin / 10} CM (JILID / BINDER)
+                    </span>
+                  </div>
+                )}
+
                 {/* Header in Preview */}
                 {showDocumentHeader && (
-                  <div className="pb-3 mb-4 border-b border-slate-200 flex items-center justify-between">
+                  <div className="pb-2.5 mb-3 border-b border-slate-200 flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-bold tracking-tight text-slate-900">
+                      <h3 className="text-xs font-bold tracking-tight text-slate-900">
                         {documentTitle || 'LABEL ASET QR CODE'}
                       </h3>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        Tata Letak: Minimalis QR 2D · {activeAssets.length} Aset Terdaftar
+                      <p className="text-[9.5px] text-slate-500 mt-0.5">
+                        Tata Letak: Minimalis QR 2D (Kompak Sejajar) · {activeAssets.length} Aset Terdaftar
                       </p>
                     </div>
-                    <span className="text-[9px] font-medium text-slate-400">
-                      Dicetak: {new Date().toLocaleDateString('id-ID')}
+                    <span className="text-[9px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                      Gap Kiri: {leftMargin / 10} cm
                     </span>
                   </div>
                 )}
@@ -690,30 +805,30 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                           <tr key={asset.id} className="hover:bg-slate-50">
                             <td className="p-1.5 text-center font-bold text-slate-400">{idx + 1}</td>
                             <td className="p-1.5">
-                              <LivePreviewQr code={asset.barcode} size={32} />
+                              <LivePreviewQr code={asset.barcode} size={28} />
                             </td>
-                            <td className="p-1.5 font-mono font-bold">{asset.barcode}</td>
-                            <td className="p-1.5 font-semibold text-slate-800">{asset.name}</td>
-                            <td className="p-1.5 text-slate-700 font-medium">
+                            <td className="p-1.5 font-mono font-bold whitespace-nowrap">{asset.barcode}</td>
+                            <td className="p-1.5 font-semibold text-slate-800 break-words">{asset.name}</td>
+                            <td className="p-1.5 text-slate-700 font-medium whitespace-nowrap">
                               {outletNameInput.trim() || asset.outlet || <span className="text-rose-500 italic">Belum diinput</span>}
                             </td>
-                            <td className="p-1.5 text-amber-700 font-semibold">{asset.location || '-'}</td>
+                            <td className="p-1.5 text-amber-700 font-semibold whitespace-nowrap">{asset.location || '-'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  /* Live Minimalist QR Cards Grid (Exact requested layout) */
+                  /* Live Minimalist QR Cards Grid (Dipersempit rapat tanpa ruang kosong bawah) */
                   <div
-                    className={`grid gap-2.5 ${
+                    className={`grid gap-2 ${
                       columns === 1 ? 'grid-cols-1' : columns === 2 ? 'grid-cols-2' : 'grid-cols-3'
                     }`}
                   >
-                    {activeAssets.slice(0, 16).map((asset) => (
+                    {activeAssets.slice(0, 24).map((asset) => (
                       <div
                         key={asset.id}
-                        className={`p-2.5 rounded-sm flex items-center gap-3 transition-all ${
+                        className={`p-1.5 rounded-sm flex items-center gap-2 transition-all ${
                           borderStyle === 'solid'
                             ? 'border border-slate-300'
                             : borderStyle === 'dashed'
@@ -727,52 +842,75 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                             code={asset.barcode}
                             size={
                               barcodeSize === 'small'
-                                ? columns === 3
-                                  ? 36
-                                  : 42
+                                ? columns === 3 ? 26 : 30
                                 : barcodeSize === 'jumbo'
-                                ? columns === 3
-                                  ? 52
-                                  : 64
-                                : columns === 3
-                                ? 44
-                                : 52
+                                ? columns === 3 ? 36 : 40
+                                : columns === 3 ? 30 : 34
                             }
                           />
                         </div>
 
-                        {/* Details on the RIGHT SIDE (Sesuai request: kode aset, nama aset, nama outlet) */}
+                        {/* Details on RIGHT: SAMA ROW (Kode & Outlet Sejajar di Row 1, Nama di Row 2) */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center leading-tight">
-                          {/* 1. KODE ASET */}
-                          <span className="font-mono font-bold text-[11px] text-slate-900 tracking-tight truncate">
-                            {asset.barcode}
-                          </span>
+                          {columns === 1 ? (
+                            /* 1 Kolom: 1 Baris Horizontal Penuh Segaris */
+                            <div className="flex items-center justify-between gap-2">
+                              {/* KODE ASET: 1 Baris Penuh (Tidak Di-wrap) */}
+                              <span className="font-mono font-bold text-[10.5px] text-slate-900 tracking-tight shrink-0 whitespace-nowrap">
+                                {asset.barcode}
+                              </span>
+                              {/* NAMA ASET: Wrap text / fleksibel */}
+                              <span className="font-bold text-[10.5px] text-slate-800 break-words flex-1 leading-tight">
+                                {asset.name}
+                              </span>
+                              {showOutlet && (
+                                <span className="text-[9.5px] text-slate-600 font-medium shrink-0 break-words leading-tight max-w-[130px] text-right">
+                                  {outletNameInput.trim() || asset.outlet
+                                    ? `Outlet: ${outletNameInput.trim() || asset.outlet}`
+                                    : '⚠️ Outlet belum diisi'}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            /* 2 atau 3 Kolom: Row 1 Kode Aset & Outlet Sejajar, Row 2 Nama Aset (Dipersempit) */
+                            <div className="space-y-0.5 min-w-0">
+                              {/* Row 1: Kode Aset (Kiri, STRICT 1 BARIS NO-WRAP) & Outlet (Kanan, WRAP TEXT AKTIF) dalam 1 Baris Sejajar! */}
+                              <div className="flex items-center justify-between gap-1 min-w-0">
+                                <span
+                                  className={`font-mono font-bold text-slate-900 tracking-tight shrink-0 whitespace-nowrap ${
+                                    columns === 3 ? 'text-[9px]' : 'text-[10px]'
+                                  }`}
+                                  title={asset.barcode}
+                                >
+                                  {asset.barcode}
+                                </span>
+                                {showOutlet && (
+                                  <span
+                                    className={`text-[8.5px] break-words leading-tight max-w-[110px] shrink min-w-0 text-right ${
+                                      (outletNameInput.trim() || asset.outlet?.trim())
+                                        ? 'text-slate-600 font-medium'
+                                        : 'text-rose-500 font-semibold italic'
+                                    }`}
+                                  >
+                                    {(outletNameInput.trim() || asset.outlet?.trim())
+                                      ? `Outlet: ${outletNameInput.trim() || asset.outlet?.trim()}`
+                                      : '⚠️ Belum diinput'}
+                                  </span>
+                                )}
+                              </div>
 
-                          {/* 2. NAMA ASET (Wrap Text Otomatis) */}
-                          <span className="font-bold text-[10.5px] text-slate-800 leading-snug break-words mt-0.5">
-                            {asset.name}
-                          </span>
+                              {/* Row 2: Nama Aset 2 (Ekspor) - (HANYA NAMA ASET YANG BOLEH WRAP TEXT) */}
+                              <div className="font-bold text-[9.5px] text-slate-800 leading-tight break-words">
+                                {asset.name}
+                              </div>
 
-                          {/* 3. NAMA OUTLET (Diinput saat mengedit, tidak dari default) */}
-                          {showOutlet && (
-                            <span
-                              className={`text-[9.5px] leading-snug break-words mt-0.5 ${
-                                (outletNameInput.trim() || asset.outlet?.trim())
-                                  ? 'text-slate-600 font-medium'
-                                  : 'text-rose-500 font-semibold italic'
-                              }`}
-                            >
-                              {(outletNameInput.trim() || asset.outlet?.trim())
-                                ? `Outlet: ${outletNameInput.trim() || asset.outlet?.trim()}`
-                                : '⚠️ Outlet belum diinput (Ketik di panel kiri)'}
-                            </span>
-                          )}
-
-                          {/* Optional: LOKASI ASET */}
-                          {showLocation && asset.location && (
-                            <span className="text-[9px] font-bold text-amber-700 leading-snug break-words mt-0.5">
-                              Lokasi: {asset.location}
-                            </span>
+                              {/* Optional: Nama Aset 1 (Barcode) */}
+                              {showLocation && (asset.barcodeName || asset.location) && (
+                                <div className="text-[8px] font-bold text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
+                                  [{asset.barcodeName || asset.location}]
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -781,9 +919,9 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                 )}
 
                 {/* More indicator if list is long */}
-                {activeAssets.length > 16 && (
-                  <div className="mt-4 pt-2 border-t border-slate-200 text-center text-[10px] text-slate-400">
-                    + {activeAssets.length - 16} aset lainnya akan dicetak pada halaman berikutnya secara rapi.
+                {activeAssets.length > 24 && (
+                  <div className="mt-3 pt-2 border-t border-slate-200 text-center text-[10px] text-slate-400">
+                    + {activeAssets.length - 24} aset lainnya akan dicetak pada halaman berikutnya secara rapi.
                   </div>
                 )}
               </div>

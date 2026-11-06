@@ -10,9 +10,9 @@ export function exportAssetsToExcel(assets: Asset[], fileNamePrefix = 'Data_Inve
   const assetRows = assets.map((asset, index) => ({
     'No': index + 1,
     'Kode Aset': asset.barcode,
-    'Nama Aset': asset.name,
+    'Nama Aset 2 (Ekspor)': asset.name,
+    'Nama Aset 1 (Barcode)': asset.barcodeName || asset.location,
     'Nama Outlet': asset.outlet,
-    'Lokasi Aset': asset.location,
     'Kategori': asset.category,
     'Status': asset.status,
     'Nomor Seri': asset.serialNumber || '-',
@@ -27,9 +27,9 @@ export function exportAssetsToExcel(assets: Asset[], fileNamePrefix = 'Data_Inve
   const colWidths = [
     { wch: 6 },   // No
     { wch: 24 },  // Kode Aset
-    { wch: 38 },  // Nama Aset
+    { wch: 38 },  // Nama Aset 2 (Ekspor)
+    { wch: 24 },  // Nama Aset 1 (Barcode)
     { wch: 26 },  // Nama Outlet
-    { wch: 20 },  // Lokasi Aset (Dapur/Service)
     { wch: 22 },  // Kategori
     { wch: 18 },  // Status
     { wch: 20 },  // Nomor Seri
@@ -100,13 +100,13 @@ export function exportAssetsToExcel(assets: Asset[], fileNamePrefix = 'Data_Inve
 // Export as simple CSV
 export function exportAssetsToCSV(assets: Asset[], fileName = 'Data_Inventaris_Aset.csv') {
   if (assets.length === 0) return;
-  const header = ['No', 'Kode Aset', 'Nama Aset', 'Nama Outlet', 'Lokasi Aset', 'Kategori', 'Status', 'Nomor Seri', 'Catatan'];
+  const header = ['No', 'Kode Aset', 'Nama Aset 2 (Ekspor)', 'Nama Aset 1 (Barcode)', 'Nama Outlet', 'Kategori', 'Status', 'Nomor Seri', 'Catatan'];
   const rows = assets.map((a, i) => [
     i + 1,
     `"${a.barcode}"`,
     `"${a.name.replace(/"/g, '""')}"`,
+    `"${(a.barcodeName || a.location || '').replace(/"/g, '""')}"`,
     `"${a.outlet.replace(/"/g, '""')}"`,
-    `"${(a.location || '').replace(/"/g, '""')}"`,
     `"${a.category}"`,
     `"${a.status}"`,
     `"${(a.serialNumber || '').replace(/"/g, '""')}"`,
