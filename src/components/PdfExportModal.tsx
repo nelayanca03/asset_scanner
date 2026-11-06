@@ -19,6 +19,7 @@ import {
   Square,
   ChevronDown,
   ChevronUp,
+  Store,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Asset } from '../types/asset';
@@ -91,8 +92,9 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
   const [barcodeSize, setBarcodeSize] = useState<'small' | 'standard' | 'jumbo'>('standard');
   const [borderStyle, setBorderStyle] = useState<'solid' | 'dashed' | 'none'>('solid');
 
-  // 3. Field Visibility
+  // 3. Field Visibility & Custom Outlet Name (Diinput manual saat mengedit, tidak dari default)
   const [showOutlet, setShowOutlet] = useState<boolean>(true);
+  const [outletNameInput, setOutletNameInput] = useState<string>('');
   const [showLocation, setShowLocation] = useState<boolean>(false);
   const [showDocumentHeader, setShowDocumentHeader] = useState<boolean>(true);
   const [documentTitle, setDocumentTitle] = useState<string>('LABEL ASET QR CODE');
@@ -152,6 +154,7 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
     setBarcodeSize('standard');
     setBorderStyle('solid');
     setShowOutlet(true);
+    setOutletNameInput('');
     setShowLocation(false);
     setShowDocumentHeader(true);
     setDocumentTitle('LABEL ASET QR CODE');
@@ -161,6 +164,10 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
   const handleExportPDF = async () => {
     if (activeAssets.length === 0) {
       alert('Pilih minimal 1 aset untuk diekspor ke PDF.');
+      return;
+    }
+    if (showOutlet && !outletNameInput.trim()) {
+      alert('Silakan masukkan Nama Outlet pada kolom input di panel kiri sebelum mengekspor PDF.');
       return;
     }
     setIsExporting(true);
@@ -173,6 +180,7 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
         barcodeSize,
         borderStyle,
         showOutlet,
+        customOutletName: outletNameInput.trim(),
         showLocation,
         showDocumentHeader,
         documentTitle,
@@ -436,18 +444,56 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                     </span>
                   </span>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={showOutlet}
-                    onChange={(e) => setShowOutlet(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                  />
-                  <span>
-                    Tampilkan <strong>Nama Outlet</strong>
-                  </span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
+                {/* Dedicated Outlet Name Input (Diinput saat mengedit ekspor) */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Store className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Nama Outlet (Input Saat Mengedit Ekspor):</span>
+                    </label>
+                    <label className="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showOutlet}
+                        onChange={(e) => setShowOutlet(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded text-indigo-600"
+                      />
+                      <span>Tampilkan</span>
+                    </label>
+                  </div>
+
+                  {showOutlet && (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        value={outletNameInput}
+                        onChange={(e) => setOutletNameInput(e.target.value)}
+                        placeholder="Ketik Nama Outlet untuk dicetak (contoh: Outlet Senayan City, Dapur Utama...)"
+                        className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-2 border-indigo-400 dark:border-indigo-600 focus:border-indigo-600 rounded-lg p-2 text-slate-900 dark:text-white placeholder:text-slate-400 placeholder:font-normal focus:outline-hidden"
+                      />
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                          *Diinput manual saat mengedit, tidak menggunakan default
+                        </span>
+                        {outletNameInput.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditableAssets((prev) =>
+                                prev.map((item) => ({ ...item, outlet: outletNameInput.trim() }))
+                              );
+                            }}
+                            className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                          >
+                            Terapkan ke baris tabel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300 pt-1">
                   <input
                     type="checkbox"
                     checked={showLocation}
@@ -648,7 +694,9 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                             </td>
                             <td className="p-1.5 font-mono font-bold">{asset.barcode}</td>
                             <td className="p-1.5 font-semibold text-slate-800">{asset.name}</td>
-                            <td className="p-1.5 text-slate-600">{asset.outlet || '-'}</td>
+                            <td className="p-1.5 text-slate-700 font-medium">
+                              {outletNameInput.trim() || asset.outlet || <span className="text-rose-500 italic">Belum diinput</span>}
+                            </td>
                             <td className="p-1.5 text-amber-700 font-semibold">{asset.location || '-'}</td>
                           </tr>
                         ))}
@@ -705,10 +753,18 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                             {asset.name}
                           </span>
 
-                          {/* 3. NAMA OUTLET (Wrap Text) */}
+                          {/* 3. NAMA OUTLET (Diinput saat mengedit, tidak dari default) */}
                           {showOutlet && (
-                            <span className="text-[9.5px] text-slate-600 leading-snug break-words mt-0.5">
-                              {asset.outlet ? `Outlet: ${asset.outlet}` : 'Outlet: Umum'}
+                            <span
+                              className={`text-[9.5px] leading-snug break-words mt-0.5 ${
+                                (outletNameInput.trim() || asset.outlet?.trim())
+                                  ? 'text-slate-600 font-medium'
+                                  : 'text-rose-500 font-semibold italic'
+                              }`}
+                            >
+                              {(outletNameInput.trim() || asset.outlet?.trim())
+                                ? `Outlet: ${outletNameInput.trim() || asset.outlet?.trim()}`
+                                : '⚠️ Outlet belum diinput (Ketik di panel kiri)'}
                             </span>
                           )}
 

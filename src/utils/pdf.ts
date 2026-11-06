@@ -14,6 +14,7 @@ export interface ExportPdfOptions {
   orientation?: 'portrait' | 'landscape';
   borderStyle?: 'solid' | 'dashed' | 'none';
   showOutlet?: boolean;
+  customOutletName?: string;
   showLocation?: boolean;
   showCategory?: boolean;
   showStatus?: boolean;
@@ -335,13 +336,14 @@ async function generateMinimalistQrPdf(
     doc.text(displayLines, textStartX, textY);
     textY += displayLines.length * nameLineHeight;
 
-    // Line 3: NAMA OUTLET (Juga wrap text bila nama outlet panjang)
-    if (options.showOutlet !== false) {
+    // Line 3: NAMA OUTLET (Diinput langsung oleh pengguna saat mengedit ekspor)
+    const effectiveOutlet = options.customOutletName?.trim() || asset.outlet?.trim() || '';
+    if (options.showOutlet !== false && effectiveOutlet) {
       textY += 0.8;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(cols === 3 ? 7 : 7.5);
       doc.setTextColor(71, 85, 105); // slate-600
-      const outletRaw = asset.outlet ? `Outlet: ${asset.outlet}` : 'Outlet: Umum';
+      const outletRaw = `Outlet: ${effectiveOutlet}`;
       const outletLines: string[] = doc.splitTextToSize(outletRaw, availableTextWidth);
       const displayOutlet = outletLines.slice(0, 2);
       doc.text(displayOutlet, textStartX, textY);
@@ -438,8 +440,10 @@ async function generateAssetCardsPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(67, 56, 202);
-    const outletText = asset.outlet || 'SEMUA OUTLET';
-    doc.text(outletText.toUpperCase(), x + 3.5, y + 7.5);
+    const outletText = options.customOutletName?.trim() || asset.outlet?.trim() || '';
+    if (outletText) {
+      doc.text(outletText.toUpperCase(), x + 3.5, y + 7.5);
+    }
 
     const locationText = asset.location || 'UMUM';
     doc.setFont('helvetica', 'bold');
@@ -561,7 +565,7 @@ export async function exportAssetsToPDF(
     const tableRows = assets.map((asset, index) => [
       index + 1,
       '',
-      asset.outlet || '-',
+      options.customOutletName?.trim() || asset.outlet || '-',
       asset.location || '-',
       asset.barcode,
       asset.name,
