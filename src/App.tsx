@@ -309,10 +309,10 @@ export default function App() {
                 <button
                   onClick={() => handleExportPDF()}
                   className="px-3.5 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap"
-                  title="Ekspor PDF resmi berformat: Barcode, Nama Outlet, Kode Aset, Nama Aset"
+                  title="Editor tata letak cetak & ekspor PDF resmi (Minimalis QR, Stiker, atau Tabel)"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Ekspor PDF (.pdf)</span>
+                  <span>Ekspor PDF / Cetak</span>
                 </button>
 
                 {/* Export Excel Button */}

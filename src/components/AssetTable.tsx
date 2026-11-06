@@ -146,13 +146,7 @@ export const AssetTable: React.FC<AssetTableProps> = ({
 
   const handleBulkPrint = () => {
     if (selectedAssetList.length === 0) return;
-    onPrintLabels(
-      selectedAssetList.map(a => ({
-        code: a.barcode,
-        label: a.name,
-        subtitle: `${a.outlet} · ${a.category}`,
-      }))
-    );
+    onExportPDF(selectedAssetList);
   };
 
   const handleBulkExportExcel = () => {
