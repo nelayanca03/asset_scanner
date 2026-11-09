@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { X, Printer, Edit2, Trash2, Download, MapPin, Building2, ShieldCheck } from 'lucide-react';
 import { Asset } from '../types/asset';
-import { renderBarcodeToCanvas, downloadBarcodeImage } from '../utils/barcode';
+import { renderBarcodeToCanvas, downloadBarcodeImage, getBarcodeText } from '../utils/barcode';
 
 interface AssetDetailModalProps {
   asset: Asset | null;
@@ -24,7 +24,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
 
   useEffect(() => {
     if (isOpen && asset && canvasRef.current) {
-      renderBarcodeToCanvas(canvasRef.current, asset.barcode, {
+      renderBarcodeToCanvas(canvasRef.current, getBarcodeText(asset), {
         height: 60,
         width: 2,
         displayValue: true,

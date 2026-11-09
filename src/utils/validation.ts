@@ -30,7 +30,7 @@ export function sanitizeBarcode(code: string): string {
   return code.trim().toUpperCase().replace(/[\r\n\t]/g, '');
 }
 
-// Check if barcode is already taken
+// Check if barcode is already taken or matches scanned "KODE ASET, NAMA ASET"
 export function findDuplicateAsset(
   barcode: string,
   existingAssets: Asset[],
@@ -38,9 +38,38 @@ export function findDuplicateAsset(
 ): Asset | undefined {
   const cleanCode = sanitizeBarcode(barcode);
   if (!cleanCode) return undefined;
-  return existingAssets.find(
-    a => sanitizeBarcode(a.barcode) === cleanCode && a.id !== excludeAssetId
-  );
+
+  // 1. Direct exact match on barcode or combined "barcode, name"
+  const directMatch = existingAssets.find(a => {
+    if (a.id === excludeAssetId) return false;
+    const aBarcode = sanitizeBarcode(a.barcode);
+    if (aBarcode === cleanCode) return true;
+    const aCombined = sanitizeBarcode(`${a.barcode}, ${a.name}`);
+    return aCombined === cleanCode;
+  });
+  if (directMatch) return directMatch;
+
+  // 2. If cleanCode contains comma "KODE ASET, NAMA ASET", match the KODE ASET part
+  if (cleanCode.includes(',')) {
+    const codePart = cleanCode.split(',')[0].trim();
+    if (codePart) {
+      const partMatch = existingAssets.find(
+        a => sanitizeBarcode(a.barcode) === codePart && a.id !== excludeAssetId
+      );
+      if (partMatch) return partMatch;
+    }
+  }
+
+  // 3. If an existing asset barcode has comma, check its code part against cleanCode
+  return existingAssets.find(a => {
+    if (a.id === excludeAssetId) return false;
+    const aClean = sanitizeBarcode(a.barcode);
+    if (aClean.includes(',')) {
+      const aCodePart = aClean.split(',')[0].trim();
+      return aCodePart === cleanCode;
+    }
+    return false;
+  });
 }
 
 // Comprehensive real-time validation

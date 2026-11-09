@@ -175,3 +175,38 @@ export function downloadBarcodeImage(
     img.src = url;
   }
 }
+
+/**
+ * Helper to construct the barcode text payload: "KODE ASET, NAMA ASET"
+ * User requirement: barcodenya di dapat kan dari convert text "KODE ASET, NAMA ASET"
+ */
+export function getBarcodeText(
+  assetOrCode: { barcode: string; name?: string } | string,
+  fallbackName?: string
+): string {
+  let code = '';
+  let name = '';
+
+  if (typeof assetOrCode === 'string') {
+    code = assetOrCode.trim();
+    name = (fallbackName || '').trim();
+  } else if (assetOrCode) {
+    code = (assetOrCode.barcode || '').trim();
+    name = (assetOrCode.name || fallbackName || '').trim();
+  }
+
+  if (!code && !name) return 'AST';
+  if (!code) return name;
+  if (!name) return code;
+
+  // Avoid duplicating if code already contains both "KODE, NAMA"
+  if (code.includes(',')) {
+    const [cPart, ...rest] = code.split(',');
+    const restJoined = rest.join(',').trim();
+    if (name.length > 2 && restJoined.toLowerCase().includes(name.toLowerCase().slice(0, 8))) {
+      return code;
+    }
+  }
+
+  return `${code}, ${name}`;
+}

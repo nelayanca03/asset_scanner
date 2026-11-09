@@ -24,6 +24,7 @@ import {
 import QRCode from 'qrcode';
 import { Asset } from '../types/asset';
 import { exportAssetsToPDF, ExportPdfOptions } from '../utils/pdf';
+import { getBarcodeText } from '../utils/barcode';
 
 interface PdfExportModalProps {
   isOpen: boolean;
@@ -32,14 +33,15 @@ interface PdfExportModalProps {
   onSuccessToast: (msg: string) => void;
 }
 
-// Mini QR renderer for live preview cards
-const LivePreviewQr: React.FC<{ code: string; size?: number }> = ({ code, size = 64 }) => {
+// Mini QR renderer for live preview cards (encodes "KODE ASET, NAMA ASET")
+const LivePreviewQr: React.FC<{ code: string; name?: string; size?: number }> = ({ code, name, size = 64 }) => {
   const [dataUrl, setDataUrl] = useState<string>('');
 
   useEffect(() => {
     let active = true;
-    if (!code) return;
-    QRCode.toDataURL(code, {
+    const barcodePayload = getBarcodeText({ barcode: code, name });
+    if (!barcodePayload) return;
+    QRCode.toDataURL(barcodePayload, {
       margin: 1,
       width: size * 2,
       errorCorrectionLevel: 'M',
@@ -52,7 +54,7 @@ const LivePreviewQr: React.FC<{ code: string; size?: number }> = ({ code, size =
     return () => {
       active = false;
     };
-  }, [code, size]);
+  }, [code, name, size]);
 
   if (!dataUrl) {
     return (
@@ -456,46 +458,49 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                   </p>
                 </div>
 
-                {/* Border Style */}
+                {/* Border Style (User: "untuk border tiap nama item di ekspor buatkan agak hitam agar ada kelihatan batasnya antar item") */}
                 <div>
-                  <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400 block mb-1.5">
-                    Garis Tepi Kartu:
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                    Garis Batas Antar Item (Bingkai):
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => setBorderStyle('solid')}
-                      className={`py-1 px-2 text-[11px] font-medium rounded-md border ${
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-all ${
                         borderStyle === 'solid'
-                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-xs dark:bg-slate-100 dark:text-slate-900'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      Garis Halus
+                      Bingkai Agak Hitam
                     </button>
                     <button
                       type="button"
                       onClick={() => setBorderStyle('dashed')}
-                      className={`py-1 px-2 text-[11px] font-medium rounded-md border ${
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-all ${
                         borderStyle === 'dashed'
-                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-xs dark:bg-slate-100 dark:text-slate-900'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      Garis Gunting
+                      Garis Putus Hitam
                     </button>
                     <button
                       type="button"
                       onClick={() => setBorderStyle('none')}
-                      className={`py-1 px-2 text-[11px] font-medium rounded-md border ${
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-all ${
                         borderStyle === 'none'
-                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-xs dark:bg-slate-100 dark:text-slate-900'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      Tanpa Garis
+                      Pemisah Bawah
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    *Border tiap nama item dibuat agak hitam tegas agar batas pemisah antar item sangat jelas terlihat saat dicetak atau dipotong.
+                  </p>
                 </div>
               </div>
             )}
@@ -807,7 +812,7 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                           <tr key={asset.id} className="hover:bg-slate-50">
                             <td className="p-1.5 text-center font-bold text-slate-400">{idx + 1}</td>
                             <td className="p-1.5">
-                              <LivePreviewQr code={asset.barcode} size={28} />
+                              <LivePreviewQr code={asset.barcode} name={asset.name} size={28} />
                             </td>
                             <td className="p-1.5 font-mono font-bold whitespace-nowrap">{asset.barcode}</td>
                             <td className="p-1.5 font-semibold text-slate-800 break-words">{asset.name}</td>
@@ -850,16 +855,17 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                           key={asset.id}
                           className={`p-2 rounded-sm flex items-center gap-2.5 transition-all bg-white ${
                             borderStyle === 'solid'
-                              ? 'border border-slate-300'
+                              ? 'border-2 border-slate-800 shadow-2xs'
                               : borderStyle === 'dashed'
-                              ? 'border border-dashed border-slate-400'
-                              : 'border-b border-slate-100'
+                              ? 'border-2 border-dashed border-slate-700 shadow-2xs'
+                              : 'border-b-2 border-slate-700'
                           }`}
                         >
                           {/* 2D QR Code on the LEFT */}
                           <div className="shrink-0 flex items-center justify-center">
                             <LivePreviewQr
                               code={asset.barcode}
+                              name={asset.name}
                               size={
                                 barcodeSize === 'small'
                                   ? columns === 3 ? 26 : 30

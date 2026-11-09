@@ -4,6 +4,7 @@ import JsBarcode from 'jsbarcode';
 import QRCode from 'qrcode';
 import { Asset } from '../types/asset';
 import { sanitizeBarcode } from './validation';
+import { getBarcodeText } from './barcode';
 
 export interface ExportPdfOptions {
   fileNamePrefix?: string;
@@ -141,15 +142,17 @@ function drawVectorBarcode(
 
 /**
  * Pre-renders QR codes into base64 Data URLs for fast and crisp placement into jsPDF.
+ * User requirement: barcodenya didapatkan dari convert text "KODE ASET, NAMA ASET".
  */
 async function generateQrDataUrlMap(assets: Asset[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   await Promise.all(
     assets.map(async (asset) => {
-      const clean = sanitizeBarcode(asset.barcode);
-      if (!clean) return;
+      // Convert text "KODE ASET, NAMA ASET" into QR Code payload
+      const barcodePayload = getBarcodeText(asset);
+      if (!barcodePayload) return;
       try {
-        const url = await QRCode.toDataURL(clean, {
+        const url = await QRCode.toDataURL(barcodePayload, {
           errorCorrectionLevel: 'M',
           margin: 1,
           width: 320,
@@ -160,7 +163,7 @@ async function generateQrDataUrlMap(assets: Asset[]): Promise<Map<string, string
         });
         map.set(asset.id || asset.barcode, url);
       } catch (e) {
-        console.warn('Failed to generate QR data URL for:', clean, e);
+        console.warn('Failed to generate QR data URL for:', barcodePayload, e);
       }
     })
   );
@@ -267,17 +270,23 @@ async function generateMinimalistQrPdf(
     const cardX = leftMargin + colIndex * (cardWidth + colGap);
     const cardY = currentY;
 
-    // 1. Draw Card Border / Guideline
-    if (options.borderStyle === 'solid') {
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.25);
-      doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 1.2, 1.2, 'S');
-    } else if (options.borderStyle === 'dashed') {
-      doc.setDrawColor(203, 213, 225);
-      doc.setLineWidth(0.25);
-      doc.setLineDashPattern([1.2, 1.2], 0);
+    // 1. Draw Card Border / Guideline (User: "untuk border tiap nama item di ekspor buatkan agak hitam agar ada kelihatan batasnya antar item")
+    if (options.borderStyle === 'dashed') {
+      doc.setDrawColor(24, 33, 47); // Agak hitam / dark slate (#18212f)
+      doc.setLineWidth(0.38);
+      doc.setLineDashPattern([1.5, 1.2], 0);
       doc.rect(cardX, cardY, cardWidth, cardHeight, 'S');
       doc.setLineDashPattern([], 0);
+    } else if (options.borderStyle === 'none') {
+      // Pemisah bawah agak hitam tipis
+      doc.setDrawColor(51, 65, 85);
+      doc.setLineWidth(0.3);
+      doc.line(cardX, cardY + cardHeight, cardX + cardWidth, cardY + cardHeight);
+    } else {
+      // Default: 'solid' -> Bingkai tegas agak hitam (#18212f) agar batas antar item jelas terlihat
+      doc.setDrawColor(24, 33, 47); // Agak hitam jelas
+      doc.setLineWidth(0.38); // Garis tegas
+      doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 1.2, 1.2, 'S');
     }
 
     // 2. Draw 2D QR Code on the LEFT
@@ -448,9 +457,9 @@ async function generateAssetCardsPdf(
     const x = marginX + col * (cardWidth + colGap);
     const y = marginY + row * (cardHeight + rowGap);
 
-    // 1. Outer Card Box
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.35);
+    // 1. Outer Card Box (User: "untuk border tiap nama item di ekspor buatkan agak hitam agar ada kelihatan batasnya antar item")
+    doc.setDrawColor(24, 33, 47); // Agak hitam tegas
+    doc.setLineWidth(0.4);
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
 
@@ -591,7 +600,7 @@ export async function exportAssetsToPDF(
       asset.barcode,
       asset.name,
       asset.status,
-      asset.barcode,
+      getBarcodeText(asset),
     ]);
 
     const barcodeColWidth = barcodeType === 'QR' ? (isJumbo ? 40 : 32) : (isJumbo ? 84 : 56);

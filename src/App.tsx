@@ -27,7 +27,7 @@ import { PrintLabelModal } from './components/PrintLabelModal';
 import { PdfExportModal } from './components/PdfExportModal';
 import { exportAssetsToExcel, exportAssetsToCSV } from './utils/excel';
 import { exportAssetsToPDF } from './utils/pdf';
-import { sanitizeBarcode } from './utils/validation';
+import { sanitizeBarcode, findDuplicateAsset } from './utils/validation';
 import { soundEffects } from './utils/audio';
 
 const STORAGE_KEY = 'assetscan_inventory_v1';
@@ -151,8 +151,8 @@ export default function App() {
 
     setLastScannedBarcode(clean);
 
-    // Check if barcode already exists in inventory
-    const existing = assets.find(a => sanitizeBarcode(a.barcode) === clean);
+    // Check if barcode already exists in inventory (handles "KODE ASET, NAMA ASET")
+    const existing = findDuplicateAsset(clean, assets);
 
     if (existing) {
       // Barcode already exists: "bisa langsung memunculkan datanya"
@@ -164,7 +164,12 @@ export default function App() {
       // New barcode: Open registration form so user can fill in details and "save dahulu"
       soundEffects.playScanSuccess();
       setAssetToEdit(null);
-      setFormInitialBarcode(clean);
+      if (clean.includes(',')) {
+        const parts = clean.split(',').map(s => s.trim());
+        setFormInitialBarcode(parts[0]);
+      } else {
+        setFormInitialBarcode(clean);
+      }
       setIsFormModalOpen(true);
       showToast(`Barcode ${clean} terdeteksi! Siap didata ke ${currentOutlet} · ${currentLocation}`);
     }
