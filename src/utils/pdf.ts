@@ -192,30 +192,30 @@ async function generateMinimalistQrPdf(
   const pageHeight = doc.internal.pageSize.getHeight();
 
   const cols = options.columns || 2;
-  // Gap kosong sebelah kiri 3 cm (30 mm) sesuai permintaan user untuk jilid/staples
+  // Gap kosong sebelah kiri Kolom 1: 3 cm (30 mm) sesuai permintaan user untuk jilid/staples
   const leftMargin = options.leftMargin !== undefined ? options.leftMargin : 30;
+  // Gap kosong sebelah kiri Kolom 2: juga 3 cm (30 mm) seperti kolom 1!
+  const colGap = cols === 2 ? 30 : cols === 1 ? 0 : 3.5;
   const rightMargin = 8;
   const marginY = 10;
-  const colGap = cols === 1 ? 0 : 3.5;
-  const rowGap = 2.2;
+  const rowGap = 2.0;
 
   const qrMap = await generateQrDataUrlMap(assets);
 
-  // Card dimensions based on columns and orientation with 3 cm left gap
+  // Card dimensions based on columns and orientation with 3 cm left gap for each column
   const printableWidth = pageWidth - leftMargin - rightMargin - (cols - 1) * colGap;
   const cardWidth = printableWidth / cols;
   
-  // Dibuat dipersempit dan rapat tanpa sisa ruang kosong (compact row height)
-  // Memuat 24 - 36+ item per lembar A4
+  // Dibuat kompak dan rapat: Row 1 Kode Aset, Row 2 Nama Aset, Row 3 Outlet di bawah nama aset
   const isSuperCompact = options.rowDensity !== 'standard';
-  let cardHeight = cols === 1 ? 16 : isSuperCompact ? 19 : 24;
-  let qrSize = cols === 1 ? 14 : isSuperCompact ? 15.5 : 19;
+  let cardHeight = cols === 1 ? 16 : isSuperCompact ? 20.5 : 24;
+  let qrSize = cols === 1 ? 14 : isSuperCompact ? 16 : 19;
 
   if (options.barcodeSize === 'small') {
-    qrSize = 13.5;
-    cardHeight = Math.max(16, cardHeight - 2.5);
+    qrSize = 14;
+    cardHeight = Math.max(17, cardHeight - 2);
   } else if (options.barcodeSize === 'jumbo') {
-    qrSize = 17;
+    qrSize = 17.5;
     cardHeight = cardHeight + 2;
   }
 
@@ -332,21 +332,21 @@ async function generateMinimalistQrPdf(
         doc.text(outletLines, cardX + cardWidth - 2.5, outletY, { align: 'right' });
       }
     } else {
-      // 2 atau 3 Kolom: Row 1 Kode Aset & Outlet Sejajar (Same Row), Row 2 Nama Aset
-      const row1Y = cardY + 5.2;
+      // 2 atau 3 Kolom:
+      // Row 1: Kode Aset (Nama Aset 1 yang diconvert jadi barcode) - STRICT 1 BARIS NO-WRAP!
+      // Row 2: Nama Aset 2 (Ekspor) - Wrap Text
+      // Row 3: Outlet - DILETAKKAN DI BAWAH NAMA ASET (User Request!)
+      const row1Y = cardY + 4.8;
       
-      // Row 1 - Kiri: KODE ASET - STRICT 1 BARIS (JANGAN PERNAH DI-WRAPTEXT!)
+      // Row 1: KODE ASET - STRICT 1 BARIS (JANGAN PERNAH DI-WRAPTEXT!)
       const cleanBarcode = asset.barcode || '-';
       doc.setFont('courier', 'bold');
       let barcodeFontSize = cols === 3 ? 7.2 : 8.5;
       doc.setFontSize(barcodeFontSize);
 
       let barcodeWidth = doc.getTextWidth(cleanBarcode);
-      const hasOutlet = options.showOutlet !== false && Boolean(effectiveOutlet);
-      const maxBarcodeWidth = hasOutlet ? availableTextWidth * 0.65 : availableTextWidth;
-
       // Auto-scale jika kode barcode sangat panjang agar TETAP 1 BARIS UTUH tanpa wrap
-      while (barcodeWidth > maxBarcodeWidth && barcodeFontSize > 5.2) {
+      while (barcodeWidth > availableTextWidth && barcodeFontSize > 5.2) {
         barcodeFontSize -= 0.3;
         doc.setFontSize(barcodeFontSize);
         barcodeWidth = doc.getTextWidth(cleanBarcode);
@@ -356,36 +356,27 @@ async function generateMinimalistQrPdf(
       // Dicetak langsung sebagai satu baris tunggal (tanpa pemecahan baris)
       doc.text(cleanBarcode, textStartX, row1Y);
 
-      // Row 1 - Kanan: NAMA OUTLET (User request: Boleh wraptext!)
-      if (hasOutlet) {
-        doc.setFont('helvetica', 'normal');
-        let outletFontSize = cols === 3 ? 6.2 : 7.2;
-        doc.setFontSize(outletFontSize);
-        doc.setTextColor(71, 85, 105);
-        const outletText = `Outlet: ${effectiveOutlet}`;
-        const maxOutletWidth = Math.max(14, availableTextWidth - barcodeWidth - 1.5);
-        // Boleh wraptext multi-baris jika nama outlet panjang
-        const outletLines: string[] = doc.splitTextToSize(outletText, maxOutletWidth);
-        const displayOutletLines = outletLines.slice(0, 2);
-        doc.text(displayOutletLines, cardX + cardWidth - 2, row1Y, { align: 'right' });
-      }
-
-      // Row 2: NAMA ASET (HANYA NAMA ASET YANG BOLEH DI-WRAP TEXT!)
-      const row2Y = cardY + 9.8;
+      // Row 2: NAMA ASET 2 (EKSPOR) (HANYA NAMA ASET YANG BOLEH DI-WRAP TEXT!)
+      const row2Y = cardY + 9.0;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(cols === 3 ? 7.2 : 8.2);
+      doc.setFontSize(cols === 3 ? 7.2 : 8.0);
       doc.setTextColor(30, 41, 59);
       // Nama Aset di-wrap rapi menjadi maksimal 2 baris
       const nameLines: string[] = doc.splitTextToSize(asset.name || 'Aset', availableTextWidth);
       const displayLines = nameLines.slice(0, 2);
       doc.text(displayLines, textStartX, row2Y);
 
-      // Lokasi Aset inline badge jika diaktifkan
-      if (options.showLocation && asset.location) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
-        doc.setTextColor(180, 83, 9);
-        doc.text(`[${asset.location}]`, textStartX, cardY + cardHeight - 1.5);
+      // Row 3: NAMA OUTLET DILETAKKAN DI BAWAH NAMA ASET (User Request!)
+      const hasOutlet = options.showOutlet !== false && Boolean(effectiveOutlet);
+      if (hasOutlet) {
+        const row3Y = row2Y + displayLines.length * 3.4 + 0.6;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(cols === 3 ? 6.2 : 7.0);
+        doc.setTextColor(71, 85, 105);
+        const outletText = `Outlet: ${effectiveOutlet}`;
+        const outletLines: string[] = doc.splitTextToSize(outletText, availableTextWidth);
+        const displayOutletLines = outletLines.slice(0, 2);
+        doc.text(displayOutletLines, textStartX, Math.min(cardY + cardHeight - 1.2, row3Y));
       }
     }
 

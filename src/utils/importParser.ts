@@ -179,11 +179,18 @@ export async function parseExcelOrCsvFile(
       assetStatus = 'Dalam Perbaikan';
     }
 
-    // Disclaimer: Jika kode aset tidak ada di file, gunakan Nama Aset 1 atau Nama Aset sebagai barcode
-    const idSource = rawAssetId || rawBarcodeName || rawName;
+    // USER EXPLICIT RULE:
+    // "text yang diconvert jadi barcode adalah kolom 2 yang berisi nama aset 1 (barcode)"
+    let column2Val = rawBarcodeName;
+    if (!column2Val && keys.length >= 2 && row[keys[1]] !== undefined && row[keys[1]] !== null) {
+      column2Val = String(row[keys[1]]).trim();
+    }
+
+    // Text yang dikonversi jadi barcode adalah kolom 2: Nama Aset 1 (Barcode)
+    const idSource = column2Val || rawAssetId || rawName;
     const individualIds = extractAssetIds(idSource);
     const outletName = rawOutlet || defaultOutlet;
-    const barcodeNameVal = rawBarcodeName || 'Dapur';
+    const barcodeNameVal = column2Val || rawBarcodeName || 'Dapur';
     const inferredCategory = rawKategori ? (rawKategori as AssetCategory) : inferCategoryFromName(rawName || barcodeNameVal);
 
     if (individualIds.length === 0 || (individualIds.length === 1 && !individualIds[0])) {
@@ -194,12 +201,12 @@ export async function parseExcelOrCsvFile(
         outlet: outletName,
         location: barcodeNameVal,
         category: inferredCategory,
-        serialNumber: rawSerial,
+        serialNumber: rawSerial || rawAssetId,
         notes: rawUom ? `UOM: ${rawUom}` : undefined,
         status: assetStatus,
         isDuplicate: false,
         isValid: false,
-        errorReason: 'Kode Aset (Barcode) kosong',
+        errorReason: 'Nama Aset 1 (Barcode) di kolom 2 kosong',
       });
       continue;
     }
@@ -231,7 +238,7 @@ export async function parseExcelOrCsvFile(
         outlet: outletName,
         location: barcodeNameVal,
         category: inferredCategory,
-        serialNumber: rawSerial,
+        serialNumber: rawSerial || (rawAssetId && rawAssetId !== cleanBarcode ? rawAssetId : undefined),
         notes: rawUom ? `Satuan: ${rawUom}${rawQty ? `, Qty: ${rawQty}` : ''}` : undefined,
         status: assetStatus,
         isDuplicate,

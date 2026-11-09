@@ -393,10 +393,10 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      Gap Kosong Sebelah Kiri (Area Jilid):
+                      Gap Kosong Jilid / Binder:
                     </label>
                     <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
-                      {leftMargin / 10} cm ({leftMargin} mm)
+                      {columns === 2 ? 'Kolom 1 & 2: 3 cm' : `${leftMargin / 10} cm`}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
@@ -416,7 +416,9 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                     ))}
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    *Sebelah kiri diberi jarak 3 cm agar aman saat dilubangi binder atau dijilid tanpa memotong barcode.
+                    {columns === 2
+                      ? '*Kolom 1 dan Kolom 2 masing-masing diberi gap 3 cm di sebelah kirinya (kertas dapat dipotong 2 dan masing-masing dijilid/dilubangi binder).'
+                      : '*Sebelah kiri diberi jarak 3 cm agar aman saat dilubangi binder atau dijilid tanpa memotong barcode.'}
                   </p>
                 </div>
 
@@ -819,102 +821,105 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                     </table>
                   </div>
                 ) : (
-                  /* Live Minimalist QR Cards Grid (Dipersempit rapat tanpa ruang kosong bawah) */
-                  <div
-                    className={`grid gap-2 ${
-                      columns === 1 ? 'grid-cols-1' : columns === 2 ? 'grid-cols-2' : 'grid-cols-3'
-                    }`}
-                  >
-                    {activeAssets.slice(0, 24).map((asset) => (
+                  /* Live Minimalist QR Cards Grid (Dipersempit rapat: Row 1 Kode Aset, Row 2 Nama Aset, Row 3 Outlet) */
+                  <div className="relative">
+                    {/* Visual 3 cm Column 2 Gap Divider when 2 columns */}
+                    {columns === 2 && (
                       <div
-                        key={asset.id}
-                        className={`p-1.5 rounded-sm flex items-center gap-2 transition-all ${
-                          borderStyle === 'solid'
-                            ? 'border border-slate-300'
-                            : borderStyle === 'dashed'
-                            ? 'border border-dashed border-slate-400'
-                            : 'border-b border-slate-100'
-                        }`}
+                        className="absolute top-0 bottom-0 pointer-events-none border-l-2 border-dashed border-indigo-200/80 z-10 flex items-center justify-center select-none"
+                        style={{ left: 'calc(50% - 18px)' }}
+                        title="Gap 3 cm Kolom 2 untuk lubang binder / garis potong"
                       >
-                        {/* 2D QR Code on the LEFT */}
-                        <div className="shrink-0 flex items-center justify-center">
-                          <LivePreviewQr
-                            code={asset.barcode}
-                            size={
-                              barcodeSize === 'small'
-                                ? columns === 3 ? 26 : 30
-                                : barcodeSize === 'jumbo'
-                                ? columns === 3 ? 36 : 40
-                                : columns === 3 ? 30 : 34
-                            }
-                          />
-                        </div>
-
-                        {/* Details on RIGHT: SAMA ROW (Kode & Outlet Sejajar di Row 1, Nama di Row 2) */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-center leading-tight">
-                          {columns === 1 ? (
-                            /* 1 Kolom: 1 Baris Horizontal Penuh Segaris */
-                            <div className="flex items-center justify-between gap-2">
-                              {/* KODE ASET: 1 Baris Penuh (Tidak Di-wrap) */}
-                              <span className="font-mono font-bold text-[10.5px] text-slate-900 tracking-tight shrink-0 whitespace-nowrap">
-                                {asset.barcode}
-                              </span>
-                              {/* NAMA ASET: Wrap text / fleksibel */}
-                              <span className="font-bold text-[10.5px] text-slate-800 break-words flex-1 leading-tight">
-                                {asset.name}
-                              </span>
-                              {showOutlet && (
-                                <span className="text-[9.5px] text-slate-600 font-medium shrink-0 break-words leading-tight max-w-[130px] text-right">
-                                  {outletNameInput.trim() || asset.outlet
-                                    ? `Outlet: ${outletNameInput.trim() || asset.outlet}`
-                                    : '⚠️ Outlet belum diisi'}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            /* 2 atau 3 Kolom: Row 1 Kode Aset & Outlet Sejajar, Row 2 Nama Aset (Dipersempit) */
-                            <div className="space-y-0.5 min-w-0">
-                              {/* Row 1: Kode Aset (Kiri, STRICT 1 BARIS NO-WRAP) & Outlet (Kanan, WRAP TEXT AKTIF) dalam 1 Baris Sejajar! */}
-                              <div className="flex items-center justify-between gap-1 min-w-0">
-                                <span
-                                  className={`font-mono font-bold text-slate-900 tracking-tight shrink-0 whitespace-nowrap ${
-                                    columns === 3 ? 'text-[9px]' : 'text-[10px]'
-                                  }`}
-                                  title={asset.barcode}
-                                >
-                                  {asset.barcode}
-                                </span>
-                                {showOutlet && (
-                                  <span
-                                    className={`text-[8.5px] break-words leading-tight max-w-[110px] shrink min-w-0 text-right ${
-                                      (outletNameInput.trim() || asset.outlet?.trim())
-                                        ? 'text-slate-600 font-medium'
-                                        : 'text-rose-500 font-semibold italic'
-                                    }`}
-                                  >
-                                    {(outletNameInput.trim() || asset.outlet?.trim())
-                                      ? `Outlet: ${outletNameInput.trim() || asset.outlet?.trim()}`
-                                      : '⚠️ Belum diinput'}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Row 2: Nama Aset 2 (Ekspor) - (HANYA NAMA ASET YANG BOLEH WRAP TEXT) */}
-                              <div className="font-bold text-[9.5px] text-slate-800 leading-tight break-words">
-                                {asset.name}
-                              </div>
-
-                              {/* Optional: Nama Aset 1 (Barcode) */}
-                              {showLocation && (asset.barcodeName || asset.location) && (
-                                <div className="text-[8px] font-bold text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
-                                  [{asset.barcodeName || asset.location}]
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <span className="bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 font-bold text-[8px] px-1 py-0.5 rounded rotate-[-90deg] whitespace-nowrap shadow-2xs">
+                          GAP 3 CM KOLOM 2
+                        </span>
                       </div>
-                    ))}
+                    )}
+
+                    <div
+                      className={`grid gap-y-2 ${
+                        columns === 1
+                          ? 'grid-cols-1'
+                          : columns === 2
+                          ? 'grid-cols-2 gap-x-[36px]'
+                          : 'grid-cols-3 gap-x-2'
+                      }`}
+                    >
+                      {activeAssets.slice(0, 24).map((asset) => (
+                        <div
+                          key={asset.id}
+                          className={`p-2 rounded-sm flex items-center gap-2.5 transition-all bg-white ${
+                            borderStyle === 'solid'
+                              ? 'border border-slate-300'
+                              : borderStyle === 'dashed'
+                              ? 'border border-dashed border-slate-400'
+                              : 'border-b border-slate-100'
+                          }`}
+                        >
+                          {/* 2D QR Code on the LEFT */}
+                          <div className="shrink-0 flex items-center justify-center">
+                            <LivePreviewQr
+                              code={asset.barcode}
+                              size={
+                                barcodeSize === 'small'
+                                  ? columns === 3 ? 26 : 30
+                                  : barcodeSize === 'jumbo'
+                                  ? columns === 3 ? 36 : 40
+                                  : columns === 3 ? 30 : 34
+                              }
+                            />
+                          </div>
+
+                          {/* Details on RIGHT:
+                              Row 1: Kode Aset (Strict 1 baris, No-Wrap)
+                              Row 2: Nama Aset (Wrap Text diizinkan)
+                              Row 3: Outlet (Diletakkan DI BAWAH Nama Aset)
+                          */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-center space-y-0.5">
+                            {/* Row 1: KODE ASET (STRICT 1 BARIS NO-WRAP) */}
+                            <div
+                              className={`font-mono font-bold text-slate-900 tracking-tight shrink-0 whitespace-nowrap overflow-hidden text-ellipsis ${
+                                columns === 3 ? 'text-[9px]' : 'text-[10px]'
+                              }`}
+                              title={asset.barcode}
+                            >
+                              {asset.barcode}
+                            </div>
+
+                            {/* Row 2: NAMA ASET 2 (EKSPOR) - WRAP TEXT */}
+                            <div
+                              className={`font-bold text-slate-800 leading-tight break-words ${
+                                columns === 3 ? 'text-[8.5px]' : 'text-[9.5px]'
+                              }`}
+                            >
+                              {asset.name}
+                            </div>
+
+                            {/* Row 3: OUTLET DILETAKKAN DI BAWAH NAMA ASET (User Request!) */}
+                            {showOutlet && (
+                              <div
+                                className={`text-[8.5px] break-words leading-tight ${
+                                  (outletNameInput.trim() || asset.outlet?.trim())
+                                    ? 'text-slate-600 font-medium'
+                                    : 'text-rose-500 font-semibold italic'
+                                }`}
+                              >
+                                {(outletNameInput.trim() || asset.outlet?.trim())
+                                  ? `Outlet: ${outletNameInput.trim() || asset.outlet?.trim()}`
+                                  : '⚠️ Outlet belum diinput'}
+                              </div>
+                            )}
+
+                            {/* Optional: Nama Aset 1 (Barcode Label jika diaktifkan) */}
+                            {showLocation && (asset.barcodeName || asset.location) && (
+                              <div className="text-[8px] font-bold text-indigo-700 dark:text-indigo-400 whitespace-nowrap">
+                                [{asset.barcodeName || asset.location}]
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
